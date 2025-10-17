@@ -1,0 +1,43 @@
+version: '3.9'
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/api/Dockerfile
+    env_file:
+      - ../.env
+    environment:
+      - DATABASE_URL=file:/var/lib/sqlite/data/app.db
+    ports:
+      - "3000:3000"
+    volumes:
+      - sqlite-data:/var/lib/sqlite/data
+    depends_on:
+      - sqlite
+
+  proxy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - PUBLIC_DOMAIN=${PUBLIC_DOMAIN}
+      - CADDY_ADMIN_EMAIL=${CADDY_ADMIN_EMAIL}
+    volumes:
+      - ../docker/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+
+  sqlite:
+    image: nouchka/sqlite3:latest
+    command: tail -f /dev/null
+    volumes:
+      - sqlite-data:/data
+
+volumes:
+  sqlite-data:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,83 @@
+
+> ft-transcendence-api@0.1.0 dev
+> tsx watch src/app.ts
+
+[2025-10-17 07:17:47.562 +0100] [31mERROR[39m: [36mFailed to start server[39m
+    service: "ft-transcendence-api"
+    env: "development"
+    err: {
+      "type": "Error",
+      "message": "Unable to access OpenAPI spec at /Users/yacoub/Desktop/ft_transcendence/backend/apps/api/openapi/openapi.json: ENOENT: no such file or directory, stat '/Users/yacoub/Desktop/ft_transcendence/backend/apps/api/openapi/openapi.json'",
+      "stack":
+          Error: Unable to access OpenAPI spec at /Users/yacoub/Desktop/ft_transcendence/backend/apps/api/openapi/openapi.json: ENOENT: no such file or directory, stat '/Users/yacoub/Desktop/ft_transcendence/backend/apps/api/openapi/openapi.json'
+              at <anonymous> (/Users/yacoub/Desktop/ft_transcendence/backend/apps/api/src/plugins/docs.ts:30:13)
+              at async docsRoutes (/Users/yacoub/Desktop/ft_transcendence/backend/apps/api/src/docs/routes.ts:130:20)
+    }
+7:19:32 AM [tsx] change in ./src/plugins/docs.ts Rerunning...
+c[2025-10-17 07:19:32.689 +0100] [32mINFO[39m: [36mServer listening at http://0.0.0.0:3000[39m
+    service: "ft-transcendence-api"
+    env: "development"
+[2025-10-17 07:19:32.689 +0100] [32mINFO[39m: [36mServer listening[39m
+    service: "ft-transcendence-api"
+    env: "development"
+    host: "0.0.0.0"
+    port: 3000
+[2025-10-17 07:20:15.327 +0100] [32mINFO[39m: [36mincoming request[39m
+    service: "ft-transcendence-api"
+    env: "development"
+    reqId: "req-1"
+    req: {
+      "id": "req-1",
+      "method": "GET",
+      "url": "/"
+    }
+[2025-10-17 07:20:15.328 +0100] [32mINFO[39m: [36mRoute GET:/ not found[39m
+    service: "ft-transcendence-api"
+    env: "development"
+    reqId: "req-1"
+[2025-10-17 07:20:15.329 +0100] [32mINFO[39m: [36mrequest completed[39m
+    service: "ft-transcendence-api"
+    env: "development"
+    reqId: "req-1"
+    res: {
+      "statusCode": 404
+    }
+    responseTime: 2.015958786010742
+[2025-10-17 07:20:15.827 +0100] [32mINFO[39m: [36mincoming request[39m
+    service: "ft-transcendence-api"
+    env: "development"
+    reqId: "req-2"
+    req: {
+      "id": "req-2",
+      "method": "GET",
+      "url": "/"
+    }
+[2025-10-17 07:20:15.827 +0100] [32mINFO[39m: [36mRoute GET:/ not found[39m
+    service: "ft-transcendence-api"
+    env: "development"
+    reqId: "req-2"
+[2025-10-17 07:20:15.827 +0100] [32mINFO[39m: [36mrequest completed[39m
+    service: "ft-transcendence-api"
+    env: "development"
+    reqId: "req-2"
+    res: {
+      "statusCode": 404
+    }
+    responseTime: 0.4070000648498535
+[2025-10-17 07:20:19.999 +0100] [32mINFO[39m: [36mincoming request[39m
+    service: "ft-transcendence-api"
+    env: "development"
+    reqId: "req-6"
+    req: {
+      "id": "req-6",
+      "method": "GET",
+      "url": "/api/openapi.json"
+    }
+[2025-10-17 07:20:20.000 +0100] [32mINFO[39m: [36mrequest completed[39m
+    service: "ft-transcendence-api"
+    env: "development"
+    reqId: "req-6"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 1.1277499198913574

@@ -1,0 +1,639 @@
+openapi: 3.1.0
+info:
+  title: FT Backend Core Services API
+  version: 0.1.0
+servers:
+  - url: https://localhost:3000
+    description: Development via Docker Compose
+paths:
+  /auth/register:
+    post:
+      summary: Register via email/password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                displayName:
+                  type: string
+              required: [email, password, displayName]
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+  /auth/login:
+    post:
+      summary: Login with email/password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+              required: [email, password]
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+  /auth/token/refresh:
+    post:
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+              required: [refreshToken]
+      responses:
+        '200':
+          description: Tokens rotated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+  /auth/logout:
+    post:
+      summary: Revoke active session
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Session revoked
+  /auth/42/start:
+    get:
+      summary: Redirect to 42 OAuth
+      responses:
+        '302':
+          description: Redirect
+  /auth/42/callback:
+    get:
+      summary: Handle 42 OAuth callback
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OAuth success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+  /auth/me:
+    get:
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+  /users/{id}:
+    get:
+      summary: Fetch public profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+  /users/{id}/stats:
+    get:
+      summary: Fetch match statistics
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Stats payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStats'
+  /chat/channels:
+    get:
+      summary: List chat channels
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Channel list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatChannel'
+    post:
+      summary: Create channel
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatChannelCreate'
+      responses:
+        '201':
+          description: Channel created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatChannel'
+  /chat/channels/{channelId}/messages:
+    get:
+      summary: Fetch channel messages
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Messages list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatMessage'
+    post:
+      summary: Post message to channel
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageCreate'
+      responses:
+        '201':
+          description: Message stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessage'
+  /chat/dm/{userId}:
+    post:
+      summary: Send direct message
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DMCreate'
+      responses:
+        '201':
+          description: DM stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessage'
+  /chat/block/{userId}:
+    post:
+      summary: Block user
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204':
+          description: Blocked
+    delete:
+      summary: Unblock user
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204':
+          description: Unblocked
+  /tournaments:
+    get:
+      summary: List tournaments
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Tournament list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tournament'
+    post:
+      summary: Create tournament
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TournamentCreate'
+      responses:
+        '201':
+          description: Tournament created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tournament'
+  /tournaments/{id}:
+    get:
+      summary: Get tournament details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tournament info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tournament'
+  /tournaments/{id}/participants:
+    post:
+      summary: Register participant
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Participant accepted
+  /matches:
+    get:
+      summary: List matches (filters by player or status)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: playerId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MatchRecord'
+    post:
+      summary: Report match result
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchReport'
+      responses:
+        '200':
+          description: Match updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchRecord'
+  /stats/leaderboard:
+    get:
+      summary: Fetch leaderboard data
+      responses:
+        '200':
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserStats'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+    ChannelId:
+      name: channelId
+      in: path
+  /docs:
+    get:
+      summary: Render interactive API documentation
+      description: Serves Scalar/Redoc UI backed by the bundled OpenAPI schema.
+      responses:
+        '200':
+          description: Documentation HTML
+          content:
+            text/html:
+              schema:
+                type: string
+                description: Rendered documentation page.
+  /ws/chat/{channelId}:
+    get:
+      summary: Connect to chat channel WebSocket
+      description: Upgrades the connection to WebSocket for real-time chat in a specific channel.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      responses:
+        '101':
+          description: Switching Protocols
+        '401':
+          description: Unauthorized
+        '429':
+          description: Rate limited
+      x-websocket:
+        messages:
+          receive:
+            $ref: '#/components/schemas/ChatEvent'
+          send:
+            $ref: '#/components/schemas/ChatEvent'
+  /ws/tournament/{id}:
+    get:
+      summary: Connect to tournament notifications WebSocket
+      description: Receives bracket updates and participant notifications for a tournament.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '101':
+          description: Switching Protocols
+        '401':
+          description: Unauthorized
+      x-websocket:
+        messages:
+          receive:
+            $ref: '#/components/schemas/TournamentEvent'
+  /ws/match/{matchId}:
+    get:
+      summary: Connect to match relay WebSocket
+      description: Streams live match assignment and status updates for an individual match.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: matchId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '101':
+          description: Switching Protocols
+        '401':
+          description: Unauthorized
+      x-websocket:
+        messages:
+          receive:
+            $ref: '#/components/schemas/MatchEvent'
+      required: true
+      schema:
+        type: string
+  schemas:
+    AuthTokens:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+      required: [accessToken, refreshToken, expiresIn]
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+        bio:
+          type: string
+      required: [id, displayName]
+    UserStats:
+      type: object
+      properties:
+        wins:
+          type: integer
+        losses:
+          type: integer
+        currentStreak:
+          type: integer
+        longestStreak:
+          type: integer
+        lastMatchAt:
+          type: string
+          format: date-time
+    ChatChannel:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        title:
+          type: string
+        visibility:
+          type: string
+      required: [id, slug, title]
+    ChatChannelCreate:
+      type: object
+      properties:
+        title:
+          type: string
+        visibility:
+          type: string
+          enum: [public, private]
+      required: [title]
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+        channelId:
+          type: string
+        senderId:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, channelId, senderId, content, createdAt]
+    ChatMessageCreate:
+      type: object
+      properties:
+        content:
+          type: string
+      required: [content]
+    DMCreate:
+      type: object
+      properties:
+        content:
+          type: string
+      required: [content]
+    Tournament:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+      required: [id, name, status, startsAt]
+    TournamentCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        maxPlayers:
+          type: integer
+      required: [name, startsAt, maxPlayers]
+    MatchRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        playerOneId:
+          type: string
+        playerTwoId:
+          type: string
+        status:
+          type: string
+        winnerId:
+          type: string
+          nullable: true
+      required: [id, playerOneId, playerTwoId, status]
+    MatchReport:
+      type: object
+      properties:
+        matchId:
+          type: string
+        winnerId:
+          type: string
+      required: [matchId, winnerId]
+    ChatEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [message, system]
+        payload:
+          oneOf:
+            - $ref: '#/components/schemas/ChatMessage'
+            - type: object
+              properties:
+                message:
+                  type: string
+      required: [type, payload]
+    TournamentEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [bracket.seeded, bracket.updated, participant.status]
+        tournamentId:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+      required: [type, tournamentId, payload]
+    MatchEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [match.assigned, match.updated]
+        matchId:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+      required: [type, matchId, payload]

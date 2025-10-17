@@ -129,6 +129,7 @@ Frontend and partner tools consume always-current OpenAPI definitions and render
 - **FR-013**: System MUST apply forward-only database migrations for every schema evolution and track applied versions.
 - **FR-014**: System MUST emit structured logs and metrics per module to support manual smoke validation and monitoring.
 - **FR-015**: System MUST reject automated test suites; manual validation checklists accompany releases.
+- **FR-016**: System MUST structure Fastify TypeScript modules for auth, chat, tournament, and stats with plugin registration enforcing separation of concerns.
 
 ### Key Entities *(include if feature involves data)*
 
