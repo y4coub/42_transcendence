@@ -17,6 +17,33 @@ import statsModule from '@stats/index';
 import usersModule from '@users/index';
 import docsRoutes from '@docs/routes';
 
+type StartOptions = {
+	port?: number;
+	host?: string;
+};
+
+const parseCliOptions = (argv: string[]): StartOptions => {
+	const options: StartOptions = {};
+	for (let index = 0; index < argv.length; index += 1) {
+		const arg = argv[index];
+		if (arg === '--port' && argv[index + 1]) {
+			const maybePort = Number.parseInt(argv[index + 1], 10);
+			if (Number.isFinite(maybePort)) {
+				options.port = maybePort;
+			}
+			index += 1;
+			continue;
+		}
+
+		if (arg === '--host' && argv[index + 1]) {
+			options.host = argv[index + 1];
+			index += 1;
+			continue;
+		}
+	}
+	return options;
+};
+
 declare module 'fastify' {
 	interface FastifyInstance {
 		config: typeof config;
@@ -55,11 +82,15 @@ export const buildApp = () => {
 	return app;
 };
 
-export const start = async () => {
+export const start = async (overrides: StartOptions = {}) => {
 	const app = buildApp();
 	try {
-		await app.listen({ port: config.server.port, host: config.server.host });
-		app.log.info({ host: config.server.host, port: config.server.port }, 'Server listening');
+		const envPort = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : undefined;
+		const normalizedEnvPort = typeof envPort === 'number' && Number.isFinite(envPort) ? envPort : undefined;
+		const port = overrides.port ?? normalizedEnvPort ?? config.server.port;
+		const host = overrides.host ?? process.env.HOST ?? config.server.host;
+		await app.listen({ port, host });
+		app.log.info({ host, port }, 'Server listening');
 	} catch (error) {
 		app.log.error({ err: error }, 'Failed to start server');
 		process.exit(1);
@@ -68,5 +99,6 @@ export const start = async () => {
 };
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-	void start();
+	const cliOptions = parseCliOptions(process.argv.slice(2));
+	void start(cliOptions);
 }

@@ -127,11 +127,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserProfile"
-  /users/{userId}:
+  /users/{id}:
     get:
       summary: Fetch public profile
       parameters:
-        - name: userId
+        - name: id
           in: path
           required: true
           schema:
@@ -143,7 +143,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserProfile"
-  /users/{userId}/stats:
+  /users/{id}/stats:
     get:
       summary: Fetch match statistics
       parameters:
@@ -185,14 +185,53 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ChatChannel"
-  /chat/channels/{channelId}/messages:
+                type: object
+                properties:
+                  channel:
+                    $ref: "#/components/schemas/ChatChannel"
+                  membership:
+                    $ref: "#/components/schemas/ChatMembership"
+                required:
+                  - channel
+                  - membership
+  /chat/channels/{slug}/messages:
+    post:
+      summary: Post message to channel
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatChannelMessageCreate"
+      responses:
+        "201":
+          description: Message stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessage"
+  /chat/history:
     get:
       summary: Fetch channel messages
       security:
         - bearerAuth: []
       parameters:
-        - $ref: "#/components/parameters/ChannelId"
+        - name: room
+          in: query
+          required: true
+          description: Channel slug to query.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
         - name: since
           in: query
           schema:
@@ -207,26 +246,39 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ChatMessage"
-    post:
-      summary: Post message to channel
+  /chat/dm/{userId}:
+    get:
+      summary: Fetch direct messages with a user
       security:
         - bearerAuth: []
       parameters:
-        - $ref: "#/components/parameters/ChannelId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ChatMessageCreate"
+        - $ref: "#/components/parameters/UserId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Use cursor or since, but not both.
       responses:
-        "201":
-          description: Message stored
+        "200":
+          description: DM history
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ChatMessage"
-  /chat/dm/{userId}:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatMessage"
     post:
       summary: Send direct message
       security:
@@ -238,7 +290,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/DMCreate"
+              $ref: "#/components/schemas/ChatDirectMessageCreate"
       responses:
         "201":
           description: DM stored
@@ -246,16 +298,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatMessage"
-  /chat/block/{userId}:
+  /chat/blocks:
+    get:
+      summary: List blocked users
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Active blocks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatBlock"
+  /chat/blocks/{userId}:
     post:
       summary: Block user
       security:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatBlockCreate"
       responses:
-        "204":
+        "200":
           description: Blocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatBlock"
     delete:
       summary: Unblock user
       security:
@@ -378,6 +454,32 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/UserStats"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+    ChannelId:
+      name: channelId
+      in: path
+      required: true
+      schema:
+        type: string
+    ChannelSlug:
+      name: slug
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Chat channel slug identifier.
   /docs:
     get:
       summary: Render interactive API documentation
@@ -393,9 +495,8 @@ paths:
   /ws/chat/{channelId}:
     get:
       summary: Connect to chat channel WebSocket
-      description: >-
-        Upgrades the connection to WebSocket for real-time chat in a specific
-        channel.
+      description: Upgrades the connection to WebSocket for real-time chat in a
+        specific channel.
       security:
         - bearerAuth: []
       parameters:
@@ -455,22 +556,6 @@ paths:
         messages:
           receive:
             $ref: "#/components/schemas/MatchEvent"
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-  parameters:
-    UserId:
-      name: userId
-      in: path
-      required: true
-      schema:
-        type: string
-    ChannelId:
-      name: channelId
-      in: path
       required: true
       schema:
         type: string
@@ -527,10 +612,21 @@ components:
           type: string
         visibility:
           type: string
+          enum:
+            - public
+            - private
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
       required:
         - id
         - slug
         - title
+        - visibility
+        - createdBy
+        - createdAt
     ChatChannelCreate:
       type: object
       properties:
@@ -541,8 +637,30 @@ components:
           enum:
             - public
             - private
+        slug:
+          type: string
       required:
         - title
+    ChatMembership:
+      type: object
+      properties:
+        channelId:
+          type: string
+        userId:
+          type: string
+        role:
+          type: string
+          enum:
+            - member
+            - admin
+        joinedAt:
+          type: string
+          format: date-time
+      required:
+        - channelId
+        - userId
+        - role
+        - joinedAt
     ChatMessage:
       type: object
       properties:
@@ -550,33 +668,69 @@ components:
           type: string
         channelId:
           type: string
+          nullable: true
         senderId:
           type: string
         content:
           type: string
+        type:
+          type: string
+          enum:
+            - channel
+            - dm
+        dmTargetId:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
       required:
         - id
-        - channelId
         - senderId
         - content
+        - type
         - createdAt
-    ChatMessageCreate:
+    ChatChannelMessageCreate:
       type: object
       properties:
         content:
           type: string
+          minLength: 1
+          maxLength: 2000
       required:
         - content
-    DMCreate:
+    ChatDirectMessageCreate:
       type: object
       properties:
         content:
           type: string
+          minLength: 1
+          maxLength: 2000
       required:
         - content
+    ChatBlock:
+      type: object
+      properties:
+        blockerId:
+          type: string
+        blockedId:
+          type: string
+        reason:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - blockerId
+        - blockedId
+        - createdAt
+    ChatBlockCreate:
+      type: object
+      properties:
+        reason:
+          type: string
+      additionalProperties: false
     Tournament:
       type: object
       properties:

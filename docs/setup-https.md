@@ -6,7 +6,7 @@ The backend is designed to run behind a Caddy reverse proxy that terminates TLS 
 
 1. Add the following entry to `/etc/hosts` (macOS/Linux) or `C:\Windows\System32\drivers\etc\hosts` (Windows):
    ```
-   127.0.0.1 api.ft-backend.local
+   127.0.0.1 https://localhost:3000
    ```
 2. Flush your DNS cache if required (`sudo dscacheutil -flushcache` on macOS).
 
@@ -15,7 +15,7 @@ The backend is designed to run behind a Caddy reverse proxy that terminates TLS 
 Ensure `.env` contains the correct proxy values:
 
 ```
-PUBLIC_DOMAIN=api.ft-backend.local
+PUBLIC_DOMAIN=https://localhost:3000
 CADDY_ADMIN_EMAIL=you@example.com
 ```
 
@@ -67,7 +67,7 @@ docker compose -f docker/compose.yml exec api npm run migrate:up
 
 1. Visit `https://localhost:3000/docs` to ensure TLS negotiation completes and documentation renders.
 2. Download the specification from `https://localhost:3000/openapi.yaml` and confirm it matches the repository bundle.
-3. Open a WebSocket client (e.g., devtools or `wscat`) to `wss://api.ft-backend.local/ws/chat/test` and confirm the connection is accepted.
+3. Open a WebSocket client (e.g., devtools or `wscat`) to `wss://https://localhost:3000/ws/chat/test` and confirm the connection is accepted.
 4. Check Caddy logs for any TLS warnings or renewals.
 
 ## 7. Troubleshooting

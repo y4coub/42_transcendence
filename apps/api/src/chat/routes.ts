@@ -10,6 +10,8 @@ import {
   deleteChannel,
   joinChannelBySlug,
   leaveChannel,
+  sendChannelMessage,
+  sendDirectMessage,
   listAvailableChannels,
   listBlocks,
   listChannelMessages,
@@ -24,8 +26,10 @@ import {
   chatBlockSchema,
   chatChannelCreateSchema,
   chatChannelSchema,
+  chatChannelMessageCreateSchema,
   chatChannelSlugSchema,
   chatChannelUpdateSchema,
+  chatDirectMessageCreateSchema,
   chatMembershipSchema,
   chatMessageSchema,
 } from './schemas';
@@ -221,6 +225,29 @@ const chatRoutes: FastifyPluginAsync = async (app) => {
   );
 
   router.post(
+    '/chat/channels/:slug/messages',
+    {
+      schema: {
+        params: channelParamsSchema,
+        body: chatChannelMessageCreateSchema,
+        response: {
+          201: chatMessageSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = await resolveUserId(request);
+
+      try {
+        const message = sendChannelMessage(userId, request.params.slug, request.body);
+        return reply.code(201).send(message);
+      } catch (error) {
+        translateServiceError(error);
+      }
+    },
+  );
+
+  router.post(
     '/chat/channels/:slug/leave',
     {
       schema: {
@@ -287,6 +314,29 @@ const chatRoutes: FastifyPluginAsync = async (app) => {
           limit: request.query.limit,
           since,
         });
+      } catch (error) {
+        translateServiceError(error);
+      }
+    },
+  );
+
+  router.post(
+    '/chat/dm/:userId',
+    {
+      schema: {
+        params: dmParamsSchema,
+        body: chatDirectMessageCreateSchema,
+        response: {
+          201: chatMessageSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = await resolveUserId(request);
+
+      try {
+        const message = sendDirectMessage(userId, request.params.userId, request.body);
+        return reply.code(201).send(message);
       } catch (error) {
         translateServiceError(error);
       }

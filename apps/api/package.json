@@ -12,9 +12,12 @@
 		"start": "node dist/app.js",
 		"migrate:up": "tsx src/infra/db/migrate.ts up",
 		"twofa:maintenance": "tsx src/auth/twofa/maintenance.ts",
-		"docs:generate": "scalar bundle ../../specs/001-specify-scripts-bash/contracts/openapi.yaml --output ../../openapi/openapi.yaml",
+		"docs:generate": "scalar document bundle ../../specs/001-specify-scripts-bash/contracts/openapi.yaml --output ../../openapi/openapi.yaml",
 		"lint": "eslint \"src/**/*.{ts,tsx}\"",
-		"format": "prettier --check \"src/**/*.{ts,tsx}\""
+		"format": "prettier --check \"src/**/*.{ts,tsx}\"",
+		"dev:detached": "nohup npm run dev -- --port 3001 > /tmp/api-dev.log 2>&1 & echo $! > /tmp/api-dev.pid",
+		"dev:stop": "kill $(cat /tmp/api-dev.pid) || true",
+		"test:smoke": "node ./tests/run-smoke.mjs"
 	},
 	"dependencies": {
 		"@fastify/cors": "^8.4.2",
@@ -35,6 +38,7 @@
 		"pino-pretty": "^10.2.0",
 		"qrcode": "^1.5.3",
 		"uuid": "^9.0.1",
+		"ws": "^8.18.0",
 		"zod": "^3.22.4"
 	},
 	"devDependencies": {
