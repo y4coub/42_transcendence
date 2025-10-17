@@ -12,7 +12,7 @@ Manual validation is the canonical quality gate for this backend. Follow the gui
 
 1. **Infrastructure Bring-up**  
    - Run `docker compose -f docker/compose.yml up --build`.  
-   - Confirm API is reachable at `https://localhost:3000/healthz`.
+   - Confirm API is reachable at `http://localhost:3000/healthz`.
 
 2. **Authentication**  
    - Execute the credential login flow (email/password).  

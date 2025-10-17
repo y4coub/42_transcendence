@@ -233,15 +233,15 @@ description: "Task list for FT Backend Core Services"
 
 **Goal**: Provide black-box smoke coverage for all documented REST endpoints and WebSocket chat using a detached dev server.**
 
-- [ ] SMOKE-001 Add detached dev/test scripts, Port overrides, and `.env.test` scaffolding
-- [ ] SMOKE-002 Implement auth smoke suite `tests/auth.smoke.mjs`
-- [ ] SMOKE-003 Implement users & stats smoke suite `tests/users.smoke.mjs`
-- [ ] SMOKE-004 Implement chat REST smoke suite `tests/chat.rest.smoke.mjs`
-- [ ] SMOKE-005 Implement matches + docs smoke suite `tests/matches_docs.smoke.mjs`
-- [ ] SMOKE-006 Implement chat WebSocket smoke suite `tests/chat.ws.smoke.mjs`
-- [ ] SMOKE-007 Implement security headers & unauthorized smoke suite `tests/security.smoke.mjs`
-- [ ] SMOKE-008 Build orchestration runner `tests/run-smoke.mjs`
-- [ ] SMOKE-009 Add GitHub Actions smoke job and README documentation updates
+- [X] SMOKE-001 Add detached dev/test scripts, Port overrides, and `.env.test` scaffolding
+- [X] SMOKE-002 Implement auth smoke suite `tests/auth.smoke.mjs`
+- [X] SMOKE-003 Implement users & stats smoke suite `tests/users.smoke.mjs`
+- [X] SMOKE-004 Implement chat REST smoke suite `tests/chat.rest.smoke.mjs`
+- [X] SMOKE-005 Implement matches + docs smoke suite `tests/matches_docs.smoke.mjs`
+- [X] SMOKE-006 Implement chat WebSocket smoke suite `tests/chat.ws.smoke.mjs` (cover join, broadcast echo, block enforcement)
+- [ ] SMOKE-007 Implement security headers & unauthorized smoke suite `tests/security.smoke.mjs` (assert healthz/docs gating and core headers)
+- [ ] SMOKE-008 Build orchestration runner `tests/run-smoke.mjs` (wire new suites, tighten readiness + summary output)
+- [ ] SMOKE-009 Add GitHub Actions smoke job and README documentation updates (document detached flow & CI usage)
 
 ---
 

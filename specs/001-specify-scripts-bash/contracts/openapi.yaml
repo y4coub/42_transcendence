@@ -1,424 +1,1741 @@
 openapi: 3.1.0
 info:
-  title: FT Backend Core Services API
-  version: 0.1.0
+  title: Project API
+  version: 1.0.0
+  description: Automatically generated specification
 servers:
-  - url: https://localhost:3000
-    description: Development via Docker Compose
+  - url: http://localhost:3000
+    description: Local Development
+  - url: https://{publicDomain}
+    description: Production Reverse Proxy
+    variables:
+      publicDomain:
+        default: api.ft-transcendence.local
+        description: Value provided by PUBLIC_DOMAIN environment variable.
+tags:
+  - name: Health
+    description: Liveness and readiness probes.
+  - name: Auth
+    description: Local authentication, token exchange, and OAuth flows.
+  - name: Auth 2FA
+    description: Two-factor authentication enrollment and trusted device management.
+  - name: OAuth
+    description: Third-party OAuth integrations.
+  - name: Chat
+    description: Channel and direct messaging APIs.
+  - name: Tournament
+    description: Tournament lifecycle, players, queue, and board management.
+  - name: Matches
+    description: Match creation, details, reporting, and realtime control.
+  - name: Users
+    description: Profile management and personal statistics.
+  - name: Stats
+    description: Global leaderboards and aggregate insights.
+  - name: Docs
+    description: Documentation delivery endpoints.
+  - name: WebSockets
+    description: Realtime gateways for chat, matches, and tournaments.
 paths:
+  /healthz:
+    get:
+      tags:
+        - Health
+      summary: Readiness probe
+      description: Returns a simple status object used by orchestrators to determine
+        API health.
+      operationId: getHealth
+      responses:
+        "200":
+          description: API health status.
+          content:
+            application/json:
+              schema:
+          example:
+            status: ok
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /auth/register:
     post:
-      summary: Register via email/password
+      tags:
+        - Auth
+      summary: Register local account
+      description: Creates a new local user account and returns access and refresh
+        tokens on success.
+      operationId: registerLocalAccount
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-                displayName:
-                  type: string
-              required: [email, password, displayName]
+              $ref: "#/components/schemas/RegisterRequest"
+            example:
+              email: player@example.com
+              password: Supersafe123!
+              displayName: PlayerOne
       responses:
-        '201':
-          description: Account created
+        "201":
+          description: Account created and tokens issued.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthTokens'
+                $ref: "#/components/schemas/AuthTokens"
+              example:
+                accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.access
+                refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh
+                expiresIn: 900
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /auth/login:
     post:
-      summary: Login with email/password
+      tags:
+        - Auth
+      summary: Login with password
+      description: Authenticates a user with email/password credentials and an
+        optional trusted device assertion.
+      operationId: loginWithPassword
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-              required: [email, password]
+              $ref: "#/components/schemas/LoginRequest"
+            example:
+              email: player@example.com
+              password: Supersafe123!
+              trustedDevice:
+                deviceId: 6f3f7955-7f52-4a2f-af97-97c1d88c6c6c
+                token: 3b62b21495f048cbbc27e190ce0ce7ac
       responses:
-        '200':
-          description: Authenticated
+        "200":
+          description: Login succeeded and tokens were issued.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthTokens'
+                $ref: "#/components/schemas/AuthTokens"
+              example:
+                accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.access
+                refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh
+                expiresIn: 900
+        "202":
+          description: Additional two-factor verification is required before issuing tokens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TwoFactorChallengeResponse"
+              example:
+                type: challenge
+                challengeId: a9f34fe7-3d7e-45aa-9907-e1a59f9a8e50
+                challengeToken: dd6572c488b24f1888ad0e8be7d84ec6
+                expiresAt: 1713207354000
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /auth/login/challenge:
+    post:
+      tags:
+        - Auth
+      summary: Complete two-factor login challenge
+      description: Validates a pending two-factor challenge and issues tokens,
+        optionally returning a trusted device token.
+      operationId: completeLoginChallenge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginChallengeRequest"
+            example:
+              challengeId: a9f34fe7-3d7e-45aa-9907-e1a59f9a8e50
+              challengeToken: dd6572c488b24f1888ad0e8be7d84ec6
+              code: 123456
+              rememberDevice: true
+              deviceName: MacBook Pro
+      responses:
+        "200":
+          description: Two-factor challenge accepted; tokens issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginChallengeSuccess"
+              example:
+                accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.access
+                refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh
+                expiresIn: 900
+                trustedDevice:
+                  deviceId: 6f3f7955-7f52-4a2f-af97-97c1d88c6c6c
+                  token: b8d88ad50fd4466886efc7aa15f3fbc3
+                  expiresAt: 1715799354000
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /auth/token/refresh:
     post:
-      summary: Refresh access token
+      tags:
+        - Auth
+      summary: Rotate access token
+      description: Exchanges a refresh token for a new access/refresh token pair.
+      operationId: refreshAuthTokens
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                refreshToken:
-                  type: string
-              required: [refreshToken]
+              $ref: "#/components/schemas/RefreshTokenRequest"
+            example:
+              refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh
       responses:
-        '200':
-          description: Tokens rotated
+        "200":
+          description: Tokens refreshed successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthTokens'
+                $ref: "#/components/schemas/AuthTokens"
+              example:
+                accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.access
+                refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh
+                expiresIn: 900
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /auth/logout:
     post:
-      summary: Revoke active session
+      tags:
+        - Auth
+      summary: Logout current session
+      description: Revokes the current access token session and removes the underlying
+        refresh token.
+      operationId: logoutSession
       security:
         - bearerAuth: []
       responses:
-        '204':
-          description: Session revoked
-  /auth/42/start:
-    get:
-      summary: Redirect to 42 OAuth
-      responses:
-        '302':
-          description: Redirect
-  /auth/42/callback:
-    get:
-      summary: Handle 42 OAuth callback
-      parameters:
-        - name: code
-          in: query
-          required: true
-          schema:
-            type: string
-        - name: state
-          in: query
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: OAuth success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthTokens'
+        "204":
+          description: Session revoked successfully; no response body.
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /auth/me:
     get:
-      summary: Get current user profile
+      tags:
+        - Auth
+      summary: Load current user
+      description: Returns the authenticated user profile and provider metadata for
+        the active session.
+      operationId: getCurrentUserProfile
       security:
         - bearerAuth: []
       responses:
-        '200':
-          description: Current user
+        "200":
+          description: Authenticated user profile.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserProfile'
-  /users/{id}:
+                $ref: "#/components/schemas/CurrentUser"
+              example:
+                id: 1af36d9d-6b0f-48d4-9e99-4f122f741f11
+                displayName: PlayerOne
+                avatarUrl: https://cdn.example.com/avatars/player-one.png
+                bio: Competitive paddle player.
+                email: player@example.com
+                provider: local
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /auth/42/start:
     get:
-      summary: Fetch public profile
+      tags:
+        - OAuth
+      summary: Begin 42 OAuth flow
+      description: Redirects the user to the 42 OAuth authorization page with PKCE
+        parameters.
+      operationId: startOAuth42
       parameters:
-        - name: id
-          in: path
+        - in: query
+          name: redirectUri
+          description: Optional URI to redirect back to after login completion.
+          schema:
+            type: string
+            format: uri
+          required: false
+          example: https://frontend.local/auth/callback
+      responses:
+        "302":
+          description: Redirect to the 42 OAuth authorization server.
+          headers:
+            Location:
+              description: Destination authorization URL.
+              schema:
+                type: string
+                format: uri
+              example: https://api.intra.42.fr/oauth/authorize?client_id=...&redirect_uri=https%3A%2F%2Ffrontend.local%2Fauth%2Fcallback&response_type=code&scope=public&state=eyJub25jZSI6Ii4uLiJ9
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /auth/42/callback:
+    get:
+      tags:
+        - OAuth
+      summary: Complete 42 OAuth flow
+      description: Exchanges the authorization code for tokens, upserts the user, and
+        issues an API session.
+      operationId: completeOAuth42
+      parameters:
+        - in: query
+          name: code
+          schema:
+            type: string
           required: true
+          description: Authorization code returned from the 42 OAuth provider.
+          example: authcode123
+        - in: query
+          name: state
           schema:
             type: string
-      responses:
-        '200':
-          description: User profile
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserProfile'
-  /users/{id}/stats:
-    get:
-      summary: Fetch match statistics
-      parameters:
-        - $ref: '#/components/parameters/UserId'
-      responses:
-        '200':
-          description: Stats payload
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserStats'
-  /chat/channels:
-    get:
-      summary: List chat channels
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Channel list
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ChatChannel'
-    post:
-      summary: Create channel
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ChatChannelCreate'
-      responses:
-        '201':
-          description: Channel created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  channel:
-                    $ref: '#/components/schemas/ChatChannel'
-                  membership:
-                    $ref: '#/components/schemas/ChatMembership'
-                required: [channel, membership]
-  /chat/channels/{slug}/messages:
-    post:
-      summary: Post message to channel
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/ChannelSlug'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ChatChannelMessageCreate'
-      responses:
-        '201':
-          description: Message stored
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ChatMessage'
-  /chat/history:
-    get:
-      summary: Fetch channel messages
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: room
-          in: query
           required: true
-          description: Channel slug to query.
-          schema:
-            type: string
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-        - name: since
-          in: query
-          schema:
-            type: string
-            format: date-time
+          description: Signed state payload that contains PKCE verifier and redirect
+            metadata.
+          example: eyJub25jZSI6InNpZ25lZC1zdGF0ZSJ9.ahFwe9l
       responses:
-        '200':
-          description: Messages list
+        "200":
+          description: OAuth login succeeded and tokens were issued.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ChatMessage'
-  /chat/dm/{userId}:
+                $ref: "#/components/schemas/AuthTokens"
+              example:
+                accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.access
+                refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh
+                expiresIn: 900
+        "202":
+          description: OAuth login requires additional two-factor verification.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TwoFactorChallengeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /auth/2fa/status:
     get:
-      summary: Fetch direct messages with a user
+      tags:
+        - Auth 2FA
+      summary: Fetch two-factor status
+      description: Returns the user’s two-factor authentication status and metadata.
+      operationId: getTwoFactorStatus
       security:
         - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/UserId'
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-        - name: since
-          in: query
-          schema:
-            type: string
-            format: date-time
-        - name: cursor
-          in: query
-          schema:
-            type: string
-            format: date-time
-          description: Use cursor or since, but not both.
       responses:
-        '200':
-          description: DM history
+        "200":
+          description: Two-factor status summary.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ChatMessage'
+                $ref: "#/components/schemas/TwoFactorStatus"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /auth/2fa/enroll/start:
     post:
-      summary: Send direct message
+      tags:
+        - Auth 2FA
+      summary: Begin two-factor enrollment
+      description: Generates a new shared secret, QR code, and recovery codes for
+        two-factor enrollment.
+      operationId: startTwoFactorEnrollment
       security:
         - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/UserId'
+      responses:
+        "200":
+          description: Two-factor enrollment secret issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TwoFactorEnrollmentStart"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /auth/2fa/enroll/confirm:
+    post:
+      tags:
+        - Auth 2FA
+      summary: Confirm two-factor enrollment
+      description: Validates the provided OTP and activates two-factor authentication.
+      operationId: confirmTwoFactorEnrollment
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ChatDirectMessageCreate'
+              $ref: "#/components/schemas/TwoFactorConfirmRequest"
+            example:
+              code: 123456
       responses:
-        '201':
-          description: DM stored
+        "200":
+          description: Updated two-factor status.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ChatMessage'
-  /chat/blocks:
-    get:
-      summary: List blocked users
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Active blocks
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ChatBlock'
-  /chat/blocks/{userId}:
+                $ref: "#/components/schemas/TwoFactorStatus"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /auth/2fa/enroll/cancel:
     post:
-      summary: Block user
+      tags:
+        - Auth 2FA
+      summary: Cancel pending enrollment
+      description: Cancels an in-progress two-factor enrollment session and returns
+        the updated status.
+      operationId: cancelTwoFactorEnrollment
       security:
         - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/UserId'
+      responses:
+        "200":
+          description: Enrollment cancelled; status snapshot returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TwoFactorStatus"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /auth/2fa/disable:
+    post:
+      tags:
+        - Auth 2FA
+      summary: Disable active two-factor authentication
+      description: Disables two-factor authentication for the user. When 2FA is
+        active, the current OTP must be provided.
+      operationId: disableTwoFactor
+      security:
+        - bearerAuth: []
       requestBody:
         required: false
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ChatBlockCreate'
+              $ref: "#/components/schemas/TwoFactorDisableRequest"
+            example:
+              code: 654321
       responses:
-        '200':
-          description: Blocked
+        "200":
+          description: Two-factor disabled or remains inactive.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ChatBlock'
+                $ref: "#/components/schemas/TwoFactorStatus"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /auth/2fa/recovery/regenerate:
+    post:
+      tags:
+        - Auth 2FA
+      summary: Regenerate recovery codes
+      description: Regenerates recovery codes after validating the provided two-factor code.
+      operationId: regenerateTwoFactorRecoveryCodes
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TwoFactorRecoveryRegenerateRequest"
+            example:
+              code: 987654
+      responses:
+        "200":
+          description: New recovery codes issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TwoFactorRecoveryCodesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /auth/2fa/trusted-devices:
+    get:
+      tags:
+        - Auth 2FA
+      summary: List trusted devices
+      description: Returns trusted device metadata for the authenticated user,
+        including total active count.
+      operationId: listTrustedDevices
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Trusted device list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrustedDeviceList"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /auth/2fa/trusted-devices/{deviceId}:
     delete:
+      tags:
+        - Auth 2FA
+      summary: Revoke trusted device
+      description: Revokes a specific trusted device token for the authenticated user.
+      operationId: deleteTrustedDevice
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TrustedDeviceIdPath"
+      responses:
+        "204":
+          description: Device revoked successfully.
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /auth/2fa/trusted-devices/revoke-all:
+    post:
+      tags:
+        - Auth 2FA
+      summary: Revoke all trusted devices
+      description: Revokes every trusted device associated with the authenticated user.
+      operationId: revokeAllTrustedDevices
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Count of revoked trusted devices.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrustedDevicesRevokeAllResponse"
+              example:
+                removed: 3
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /chat/channels:
+    get:
+      tags:
+        - Chat
+      summary: List available channels
+      description: Returns public and joined chat channels visible to the
+        authenticated user.
+      operationId: listChatChannels
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Channel collection.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatChannel"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags:
+        - Chat
+      summary: Create channel
+      description: Creates a new chat channel and returns both channel metadata and
+        the creator’s membership record.
+      operationId: createChatChannel
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatChannelCreate"
+            example:
+              title: Ladder Updates
+              visibility: public
+              slug: ladder-updates
+      responses:
+        "201":
+          description: Channel created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - channel
+                  - membership
+                properties:
+                  channel:
+                    $ref: "#/components/schemas/ChatChannel"
+                  membership:
+                    $ref: "#/components/schemas/ChatMembership"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /chat/channels/{slug}:
+    patch:
+      tags:
+        - Chat
+      summary: Update channel
+      description: Updates channel metadata such as title or visibility. Only channel
+        admins may update.
+      operationId: updateChatChannel
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelSlugPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatChannelUpdate"
+            example:
+              title: Ladder Announcements
+      responses:
+        "200":
+          description: Updated channel state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatChannel"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      tags:
+        - Chat
+      summary: Delete channel
+      description: Deletes the specified channel when performed by an admin.
+      operationId: deleteChatChannel
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelSlugPath"
+      responses:
+        "204":
+          description: Channel deleted successfully.
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /chat/channels/{slug}/join:
+    post:
+      tags:
+        - Chat
+      summary: Join channel
+      description: Joins the authenticated user to the given channel.
+      operationId: joinChatChannel
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelSlugPath"
+      responses:
+        "200":
+          description: Membership record for the joined channel.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMembership"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /chat/channels/{slug}/messages:
+    post:
+      tags:
+        - Chat
+      summary: Send channel message
+      description: Sends a message to the specified channel.
+      operationId: createChatChannelMessage
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelSlugPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatChannelMessageCreate"
+            example:
+              content: Match starting in five minutes!
+      responses:
+        "201":
+          description: Message persisted and broadcast.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessage"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /chat/channels/{slug}/leave:
+    post:
+      tags:
+        - Chat
+      summary: Leave channel
+      description: Removes the authenticated user from the channel membership.
+      operationId: leaveChatChannel
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelSlugPath"
+      responses:
+        "204":
+          description: User left the channel.
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /chat/history:
+    get:
+      tags:
+        - Chat
+      summary: Channel message history
+      description: Retrieves channel messages visible to the authenticated user with
+        optional pagination.
+      operationId: listChatHistory
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: room
+          required: true
+          description: Channel slug whose history should be returned.
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 40
+          example: ladder-updates
+        - in: query
+          name: limit
+          required: false
+          description: Maximum number of messages to return (defaults to service limit).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          example: 50
+        - in: query
+          name: since
+          required: false
+          description: Fetch messages created after this ISO-8601 timestamp.
+          schema:
+            type: string
+            format: date-time
+          example: 2024-04-12T09:30:00.000Z
+      responses:
+        "200":
+          description: Ordered collection of messages.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatMessage"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /chat/dm/{userId}:
+    get:
+      tags:
+        - Chat
+      summary: Direct message history
+      description: Retrieves direct messages between the authenticated user and
+        another user.
+      operationId: listDirectMessages
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChatUserIdPath"
+        - in: query
+          name: cursor
+          required: false
+          description: Timestamp cursor for backwards pagination (mutually exclusive with
+            since).
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: since
+          required: false
+          description: Return messages sent after this timestamp (mutually exclusive with
+            cursor).
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: limit
+          required: false
+          description: Maximum number of messages to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Direct message history.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatMessage"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags:
+        - Chat
+      summary: Send direct message
+      description: Sends a direct message to the specified user.
+      operationId: createDirectMessage
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChatUserIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatDirectMessageCreate"
+            example:
+              content: GG, thanks for the match!
+      responses:
+        "201":
+          description: Direct message persisted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessage"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /chat/blocks:
+    get:
+      tags:
+        - Chat
+      summary: List blocked users
+      description: Returns users blocked by the authenticated user.
+      operationId: listChatBlocks
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Blocked user collection.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatBlock"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /chat/blocks/{userId}:
+    post:
+      tags:
+        - Chat
+      summary: Block user
+      description: Blocks the target user and optionally records a reason.
+      operationId: blockChatUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChatUserIdPath"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatBlockCreate"
+            example:
+              reason: Spam
+      responses:
+        "200":
+          description: Block created or updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatBlock"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      tags:
+        - Chat
       summary: Unblock user
+      description: Removes a block entry for the specified user.
+      operationId: unblockChatUser
       security:
         - bearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/UserId'
+        - $ref: "#/components/parameters/ChatUserIdPath"
       responses:
-        '204':
-          description: Unblocked
-  /tournaments:
+        "204":
+          description: Block removed; no content.
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /chat/conversations:
     get:
+      tags:
+        - Chat
+      summary: Recent conversations
+      description: Lists the most recent DM partners for the authenticated user.
+      operationId: listChatConversations
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          description: Maximum number of conversations to return (default 20).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: Recent conversation metadata.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatConversation"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /tournament:
+    get:
+      tags:
+        - Tournament
       summary: List tournaments
-      security:
-        - bearerAuth: []
+      description: Returns all tournaments with high-level status.
+      operationId: listTournaments
       responses:
-        '200':
-          description: Tournament list
+        "200":
+          description: Tournament collection.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Tournament'
+                  $ref: "#/components/schemas/Tournament"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /tournament/start:
     post:
-      summary: Create tournament
-      security:
-        - bearerAuth: []
+      tags:
+        - Tournament
+      summary: Start new tournament
+      description: Creates a new tournament instance with the provided name.
+      operationId: startTournament
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TournamentCreate'
+              $ref: "#/components/schemas/TournamentCreate"
+            example:
+              name: Autumn Invitational
       responses:
-        '201':
-          description: Tournament created
+        "201":
+          description: Tournament created.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tournament'
-  /tournaments/{id}:
+                $ref: "#/components/schemas/Tournament"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /tournament/{tournamentId}:
     get:
-      summary: Get tournament details
+      tags:
+        - Tournament
+      summary: Get tournament
+      description: Returns tournament metadata by identifier.
+      operationId: getTournament
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: "#/components/parameters/TournamentIdPath"
       responses:
-        '200':
-          description: Tournament info
+        "200":
+          description: Tournament metadata.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tournament'
-  /tournaments/{id}/participants:
-    post:
-      summary: Register participant
-      security:
-        - bearerAuth: []
+                $ref: "#/components/schemas/Tournament"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /tournament/{tournamentId}/players:
+    get:
+      tags:
+        - Tournament
+      summary: List tournament players
+      description: Returns players registered in the specified tournament.
+      operationId: listTournamentPlayers
       parameters:
-        - name: id
-          in: path
+        - $ref: "#/components/parameters/TournamentIdPath"
+      responses:
+        "200":
+          description: Player roster.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TournamentPlayer"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /tournament/register:
+    post:
+      tags:
+        - Tournament
+      summary: Register player
+      description: Registers a player for a tournament.
+      operationId: registerTournamentPlayer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TournamentRegister"
+            example:
+              tournamentId: 2b6c4701-2c2b-4700-9c74-448ac095c28b
+              alias: AceRunner
+              userId: 1af36d9d-6b0f-48d4-9e99-4f122f741f11
+      responses:
+        "201":
+          description: Player registered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentPlayer"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /tournament/queue/join:
+    post:
+      tags:
+        - Tournament
+      summary: Join tournament queue
+      description: Places a registered player into the match queue.
+      operationId: joinTournamentQueue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TournamentQueueJoin"
+            example:
+              playerId: 8cd7b200-94a9-46be-9e82-cd6bf0b39945
+      responses:
+        "200":
+          description: Player state with updated queue timestamp.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentPlayer"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /tournament/queue/leave:
+    post:
+      tags:
+        - Tournament
+      summary: Leave tournament queue
+      description: Removes a player from the tournament queue.
+      operationId: leaveTournamentQueue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TournamentQueueLeave"
+            example:
+              playerId: 8cd7b200-94a9-46be-9e82-cd6bf0b39945
+      responses:
+        "200":
+          description: Player record with queue removal.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentPlayer"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /tournament/queue:
+    get:
+      tags:
+        - Tournament
+      summary: List queued players
+      description: Lists players currently waiting in the tournament queue.
+      operationId: listTournamentQueue
+      parameters:
+        - in: query
+          name: tournamentId
           required: true
           schema:
             type: string
+            format: uuid
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
       responses:
-        '201':
-          description: Participant accepted
+        "200":
+          description: Queued player list.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TournamentPlayer"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /tournament/board:
+    get:
+      tags:
+        - Tournament
+      summary: Tournament board
+      description: Returns the bracket board for a tournament, including match results
+        and winners.
+      operationId: getTournamentBoard
+      parameters:
+        - in: query
+          name: tournamentId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Current bracket board.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentBoard"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /tournament/next:
+    get:
+      tags:
+        - Tournament
+      summary: Current announced match
+      description: Returns the currently announced match for a tournament or 204 if none.
+      operationId: getTournamentNextMatch
+      parameters:
+        - in: query
+          name: tournamentId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The next announced match.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentAnnounceNext"
+        "204":
+          description: No match announced.
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /tournament/announce-next:
+    post:
+      tags:
+        - Tournament
+      summary: Announce next match
+      description: Announces the next match for a tournament, if one is available.
+      operationId: announceNextMatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tournamentId
+              properties:
+                tournamentId:
+                  type: string
+                  format: uuid
+            example:
+              tournamentId: 2b6c4701-2c2b-4700-9c74-448ac095c28b
+      responses:
+        "200":
+          description: Match announcement details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentAnnounceNext"
+        "204":
+          description: No match was available to announce.
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /tournament/result:
+    post:
+      tags:
+        - Tournament
+      summary: Record match result
+      description: Records the outcome of a tournament match.
+      operationId: recordTournamentResult
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TournamentResult"
+            example:
+              matchId: 3e7d621f-d323-497c-ae63-ccd4f3c3d82e
+              p1Score: 3
+              p2Score: 1
+              winnerId: 8cd7b200-94a9-46be-9e82-cd6bf0b39945
+      responses:
+        "200":
+          description: Updated match record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentMatch"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /matches:
-    get:
-      summary: List matches (filters by player or status)
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: playerId
-          in: query
-          schema:
-            type: string
-        - name: status
-          in: query
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Matches
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/MatchRecord'
     post:
-      summary: Report match result
+      tags:
+        - Matches
+      summary: Create match session
+      description: Creates an ad-hoc match session between players or pulls from a
+        queue/tournament.
+      operationId: createMatch
       security:
         - bearerAuth: []
       requestBody:
@@ -426,134 +1743,881 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MatchReport'
+              $ref: "#/components/schemas/MatchCreateRequest"
+            example:
+              tournamentId: 2b6c4701-2c2b-4700-9c74-448ac095c28b
+              requesterId: 8cd7b200-94a9-46be-9e82-cd6bf0b39945
+              opponentId: 591b4f09-4671-4b07-a5cd-77d8e4f4a51c
       responses:
-        '200':
-          description: Match updated
+        "201":
+          description: Match session created.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MatchRecord'
+                $ref: "#/components/schemas/MatchCreateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /matches/{matchId}:
+    get:
+      tags:
+        - Matches
+      summary: Fetch match
+      description: Returns match details for the specified match identifier.
+      operationId: getMatchDetail
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/MatchIdPath"
+      responses:
+        "200":
+          description: Match detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchDetail"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /matches/{matchId}/result:
+    patch:
+      tags:
+        - Matches
+      summary: Submit match result
+      description: Records the final score for a match. The path and body matchId must
+        agree.
+      operationId: submitMatchResult
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/MatchIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MatchResult"
+            example:
+              matchId: 3e7d621f-d323-497c-ae63-ccd4f3c3d82e
+              p1Score: 5
+              p2Score: 2
+              winnerId: 8cd7b200-94a9-46be-9e82-cd6bf0b39945
+      responses:
+        "200":
+          description: Result stored successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchOk"
+              example:
+                ok: true
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /users/{userId}:
+    get:
+      tags:
+        - Users
+      summary: Get user profile
+      description: Returns the profile of the requested user.
+      operationId: getUserProfile
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      responses:
+        "200":
+          description: User profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    patch:
+      tags:
+        - Users
+      summary: Update user profile
+      description: Updates profile fields for the target user. Only the owner may update.
+      operationId: updateUserProfile
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserProfileUpdate"
+            example:
+              displayName: RallyMaster
+              avatarUrl: https://cdn.example.com/avatars/rally-master.png
+      responses:
+        "200":
+          description: Updated profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /users/{userId}/stats:
+    get:
+      tags:
+        - Users
+      summary: User statistics
+      description: Returns win/loss counts, streaks, and recent match history for a user.
+      operationId: getUserStats
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - in: query
+          name: refresh
+          required: false
+          description: When true, forces a stats recomputation.
+          schema:
+            type: boolean
+        - in: query
+          name: limit
+          required: false
+          description: Maximum number of recent matches to include.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 25
+      responses:
+        "200":
+          description: User statistics payload.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserStats"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /stats/leaderboard:
     get:
-      summary: Fetch leaderboard data
+      tags:
+        - Stats
+      summary: Fetch leaderboard
+      description: Returns top players sorted by win rate and streak.
+      operationId: getLeaderboard
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          description: Maximum number of leaderboard entries to return (default 10).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
       responses:
-        '200':
-          description: Leaderboard
+        "200":
+          description: Leaderboard entries.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/UserStats'
+                $ref: "#/components/schemas/LeaderboardResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /openapi.yaml:
+    get:
+      tags:
+        - Docs
+      summary: Download bundled OpenAPI YAML
+      description: Serves the bundled OpenAPI specification used by documentation.
+      operationId: downloadOpenapiYaml
+      responses:
+        "200":
+          description: Bundled OpenAPI document.
+          content:
+            application/yaml:
+              schema:
+                type: string
+                description: YAML representation of the OpenAPI schema.
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/openapi.json:
+    get:
+      tags:
+        - Docs
+      summary: Download bundled OpenAPI JSON
+      description: Returns the bundled OpenAPI specification in JSON format. In
+        production, access requires either basic authentication or an active JWT
+        session.
+      operationId: downloadOpenapiJson
+      security:
+        - basicDocsAuth: []
+        - bearerAuth: []
+        - {}
+      responses:
+        "200":
+          description: Bundled OpenAPI JSON.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocsBundle"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /docs:
+    get:
+      tags:
+        - Docs
+      summary: Render documentation UI
+      description: Serves the Scalar documentation interface backed by the bundled
+        OpenAPI schema.
+      operationId: renderDocs
+      security:
+        - basicDocsAuth: []
+        - bearerAuth: []
+        - {}
+      responses:
+        "200":
+          description: Documentation HTML UI.
+          content:
+            text/html:
+              schema:
+                $ref: "#/components/schemas/DocsHtml"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /ws/chat:
+    get:
+      tags:
+        - WebSockets
+        - Chat
+      summary: Chat WebSocket gateway
+      description: Upgrades the connection for realtime chat channels, DMs, block
+        management, and presence notifications.
+      operationId: connectChatWebsocket
+      security:
+        - bearerAuth: []
+      x-codeSamples:
+        - lang: shell
+          label: wscat (Node.js)
+          source: |
+            ACCESS_TOKEN="<access-token>"
+            wscat --connect "ws://localhost:3000/ws/chat" \
+              --header "Authorization: Bearer ${ACCESS_TOKEN}"
+            # After connecting, join a room:
+            # {"type":"join","room":"ladder-updates"}
+        - lang: javascript
+          label: Node ws client
+          source: |
+            import WebSocket from 'ws';
 
+            const socket = new WebSocket('ws://localhost:3000/ws/chat', {
+              headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}` },
+            });
+
+            socket.on('open', () => {
+              socket.send(JSON.stringify({ type: 'join', room: 'ladder-updates' }));
+            });
+
+            socket.on('message', (data) => {
+              console.log('chat event', JSON.parse(data.toString()));
+            });
+      responses:
+        "101":
+          description: Connection upgraded to WebSocket.
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      x-websocket:
+        notes: >
+          Authenticate with the bearer access token in the Authorization header.
+          After connecting, send JSON messages with a `type` field to join
+          rooms, post messages, block/unblock users, or send pings.
+        clientMessages:
+          - name: ChatWsClientMessage
+            schema:
+              $ref: "#/components/schemas/ChatWsClientMessage"
+        serverMessages:
+          - name: ChatWsServerEvent
+            schema:
+              $ref: "#/components/schemas/ChatWsServerEvent"
+  /ws/match/{matchId}:
+    get:
+      tags:
+        - WebSockets
+        - Matches
+      summary: Match control WebSocket
+      description: Provides realtime match coordination between two players, including
+        state synchronization.
+      operationId: connectMatchWebsocket
+      parameters:
+        - $ref: "#/components/parameters/MatchIdPath"
+        - in: query
+          name: playerId
+          required: true
+          description: Tournament player identifier of the connecting client.
+          schema:
+            type: string
+            format: uuid
+      x-codeSamples:
+        - lang: shell
+          label: wscat (Node.js)
+          source: |
+            MATCH_ID="<match-id>"
+            PLAYER_ID="<tournament-player-id>"
+            wscat --connect "ws://localhost:3000/ws/match/${MATCH_ID}?playerId=${PLAYER_ID}"
+            # After connecting, send:
+            # {"type":"join"}
+            # Subsequent realtime state:
+            # {"type":"state","payload":{"ball":{"x":0.42,"y":0.81}}}
+        - lang: javascript
+          label: Node ws client
+          source: |
+            import WebSocket from 'ws';
+
+            const matchId = '<match-id>';
+            const playerId = '<tournament-player-id>';
+            const socket = new WebSocket(`ws://localhost:3000/ws/match/${matchId}?playerId=${playerId}`);
+
+            socket.on('open', () => {
+              socket.send(JSON.stringify({ type: 'join' }));
+              socket.send(JSON.stringify({
+                type: 'state',
+                payload: { ball: { x: 0.42, y: 0.81 }, score: { p1: 3, p2: 2 } },
+              }));
+            });
+
+            socket.on('message', (data) => {
+              console.log('match event', JSON.parse(data.toString()));
+            });
+      responses:
+        "101":
+          description: Connection upgraded to WebSocket.
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      x-websocket:
+        notes: >
+          Clients must include a valid tournament player ID and match ID. After
+          joining, every state payload is forwarded verbatim to the opponent.
+          Populate the payload with the full realtime snapshot you need (for
+          example, ball coordinates, paddle positions, score, countdown timers);
+          the server does not persist or validate physics. Use the `join`
+          command before sending realtime updates.
+        clientMessages:
+          - name: MatchWsClientMessage
+            schema:
+              $ref: "#/components/schemas/MatchWsClientMessage"
+        serverMessages:
+          - name: MatchWsServerEvent
+            schema:
+              $ref: "#/components/schemas/MatchWsServerEvent"
+  /ws/tournament:
+    get:
+      tags:
+        - WebSockets
+        - Tournament
+      summary: Tournament notifications WebSocket
+      description: Streams tournament announcements and results; optional
+        authentication allows protected access in production.
+      operationId: connectTournamentWebsocket
+      security:
+        - bearerAuth: []
+        - {}
+      x-codeSamples:
+        - lang: shell
+          label: wscat (public)
+          source: |
+            TOURNAMENT_ID="<tournament-id>"
+            wscat --connect "ws://localhost:3000/ws/tournament" \
+              --execute "{\"type\":\"subscribe\",\"tournamentId\":\"${TOURNAMENT_ID}\"}"
+        - lang: shell
+          label: wscat (with auth)
+          source: |
+            ACCESS_TOKEN="<access-token>"
+            TOURNAMENT_ID="<tournament-id>"
+            wscat --connect "ws://localhost:3000/ws/tournament" \
+              --header "Authorization: Bearer ${ACCESS_TOKEN}" \
+              --execute "{\"type\":\"subscribe\",\"tournamentId\":\"${TOURNAMENT_ID}\"}"
+        - lang: javascript
+          label: Node ws client
+          source: |
+            import WebSocket from 'ws';
+
+            const tournamentId = '<tournament-id>';
+            const socket = new WebSocket('ws://localhost:3000/ws/tournament', {
+              headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN ?? ''}` },
+            });
+
+            socket.on('open', () => {
+              socket.send(JSON.stringify({ type: 'subscribe', tournamentId }));
+            });
+
+            socket.on('message', (data) => {
+              console.log('tournament event', JSON.parse(data.toString()));
+            });
+      responses:
+        "101":
+          description: Connection upgraded to WebSocket.
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityError"
+        "429":
+          $ref: "#/components/responses/TooManyRequestsError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      x-websocket:
+        notes: >
+          Subscribe to tournament updates by sending a `subscribe` command with
+          the tournament ID. The server pushes `announceNext` and `result`
+          events when matches are announced or completed.
+        clientMessages:
+          - name: TournamentWsClientMessage
+            schema:
+              $ref: "#/components/schemas/TournamentWsClientMessage"
+        serverMessages:
+          - name: TournamentWsServerEvent
+            schema:
+              $ref: "#/components/schemas/TournamentWsServerEvent"
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: "Send the JWT access token as `Authorization: Bearer <token>`."
+    basicDocsAuth:
+      type: http
+      scheme: basic
+      description: Basic authentication required for documentation endpoints in production.
+  responses:
+    BadRequestError:
+      description: The request payload or parameters were invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            statusCode: 400
+            error: Bad Request
+            message: Invalid payload.
+    UnauthorizedError:
+      description: Authentication is required or failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            statusCode: 401
+            error: Unauthorized
+            message: Authentication required.
+    ForbiddenError:
+      description: The authenticated user is not allowed to perform this action.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            statusCode: 403
+            error: Forbidden
+            message: Action not permitted.
+    NotFoundError:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            statusCode: 404
+            error: Not Found
+            message: Resource not found.
+    ConflictError:
+      description: The request conflicts with the current resource state.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            statusCode: 409
+            error: Conflict
+            message: Resource already exists.
+    UnprocessableEntityError:
+      description: Semantic validation errors occurred.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationErrorResponse"
+          example:
+            statusCode: 422
+            error: Unprocessable Entity
+            message: Validation failed.
+            details:
+              issues:
+                - path: displayName
+                  message: Display name must be at least 3 characters long.
+    TooManyRequestsError:
+      description: Request rate limit exceeded.
+      headers:
+        Retry-After:
+          description: Seconds until the next allowed request.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            statusCode: 429
+            error: Too Many Requests
+            message: Rate limit exceeded. Please retry later.
+    InternalServerError:
+      description: An unexpected error occurred.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            statusCode: 500
+            error: Internal Server Error
+            message: Something went wrong.
   parameters:
-    UserId:
+    UserIdPath:
       name: userId
       in: path
       required: true
+      description: Unique user identifier (UUID).
       schema:
         type: string
-    ChannelId:
-      name: channelId
+        format: uuid
+    ChatUserIdPath:
+      name: userId
       in: path
       required: true
+      description: Target user identifier (UUID).
       schema:
         type: string
-    ChannelSlug:
+        format: uuid
+    ChannelSlugPath:
       name: slug
       in: path
       required: true
+      description: Channel slug identifier.
       schema:
         type: string
-      description: Chat channel slug identifier.
-  /docs:
-    get:
-      summary: Render interactive API documentation
-      description: Serves Scalar/Redoc UI backed by the bundled OpenAPI schema.
-      responses:
-        '200':
-          description: Documentation HTML
-          content:
-            text/html:
-              schema:
-                type: string
-                description: Rendered documentation page.
-  /ws/chat/{channelId}:
-    get:
-      summary: Connect to chat channel WebSocket
-      description: Upgrades the connection to WebSocket for real-time chat in a specific channel.
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/ChannelId'
-      responses:
-        '101':
-          description: Switching Protocols
-        '401':
-          description: Unauthorized
-        '429':
-          description: Rate limited
-      x-websocket:
-        messages:
-          receive:
-            $ref: '#/components/schemas/ChatEvent'
-          send:
-            $ref: '#/components/schemas/ChatEvent'
-  /ws/tournament/{id}:
-    get:
-      summary: Connect to tournament notifications WebSocket
-      description: Receives bracket updates and participant notifications for a tournament.
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '101':
-          description: Switching Protocols
-        '401':
-          description: Unauthorized
-      x-websocket:
-        messages:
-          receive:
-            $ref: '#/components/schemas/TournamentEvent'
-  /ws/match/{matchId}:
-    get:
-      summary: Connect to match relay WebSocket
-      description: Streams live match assignment and status updates for an individual match.
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: matchId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '101':
-          description: Switching Protocols
-        '401':
-          description: Unauthorized
-      x-websocket:
-        messages:
-          receive:
-            $ref: '#/components/schemas/MatchEvent'
+        pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+    TournamentIdPath:
+      name: tournamentId
+      in: path
       required: true
+      description: Tournament identifier (UUID).
       schema:
         type: string
+        format: uuid
+    MatchIdPath:
+      name: matchId
+      in: path
+      required: true
+      description: Match identifier (UUID).
+      schema:
+        type: string
+        format: uuid
+    TrustedDeviceIdPath:
+      name: deviceId
+      in: path
+      required: true
+      description: Trusted device identifier (UUID).
+      schema:
+        type: string
+        format: uuid
   schemas:
+    HealthCheck:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+    ErrorResponse:
+      type: object
+      required:
+        - statusCode
+        - error
+        - message
+      properties:
+        statusCode:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+          nullable: true
+    ValidationIssue:
+      type: object
+      required:
+        - path
+        - message
+      properties:
+        path:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        message:
+          type: string
+    ValidationErrorResponse:
+      allOf:
+        - $ref: "#/components/schemas/ErrorResponse"
+        - type: object
+          properties:
+            details:
+              type: object
+              properties:
+                issues:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ValidationIssue"
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - displayName
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+        displayName:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: ^[A-Za-z0-9 _\-]+$
+    TrustedDeviceAssertion:
+      type: object
+      required:
+        - deviceId
+        - token
+      properties:
+        deviceId:
+          type: string
+          format: uuid
+        token:
+          type: string
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        trustedDevice:
+          $ref: "#/components/schemas/TrustedDeviceAssertion"
+    TwoFactorChallengeResponse:
+      type: object
+      required:
+        - type
+        - challengeId
+        - challengeToken
+        - expiresAt
+      properties:
+        type:
+          type: string
+          const: challenge
+        challengeId:
+          type: string
+          format: uuid
+        challengeToken:
+          type: string
+        expiresAt:
+          type: integer
+          description: Epoch milliseconds when the challenge expires.
+    TrustedDeviceIssue:
+      type: object
+      required:
+        - deviceId
+        - token
+        - expiresAt
+      properties:
+        deviceId:
+          type: string
+          format: uuid
+        token:
+          type: string
+        expiresAt:
+          type: integer
+          description: Epoch milliseconds when the trusted device token expires.
     AuthTokens:
       type: object
+      required:
+        - accessToken
+        - refreshToken
+        - expiresIn
       properties:
         accessToken:
           type: string
@@ -561,216 +2625,1285 @@ components:
           type: string
         expiresIn:
           type: integer
-      required: [accessToken, refreshToken, expiresIn]
-    UserProfile:
+          description: Access token lifetime in seconds.
+    LoginChallengeRequest:
       type: object
+      required:
+        - challengeId
+        - challengeToken
+        - code
+      properties:
+        challengeId:
+          type: string
+          format: uuid
+        challengeToken:
+          type: string
+        code:
+          type: string
+        rememberDevice:
+          type: boolean
+        deviceName:
+          type: string
+          maxLength: 64
+    LoginChallengeSuccess:
+      allOf:
+        - $ref: "#/components/schemas/AuthTokens"
+        - type: object
+          properties:
+            trustedDevice:
+              $ref: "#/components/schemas/TrustedDeviceIssue"
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+    CurrentUser:
+      type: object
+      required:
+        - id
+        - displayName
+        - email
+        - provider
       properties:
         id:
           type: string
+          format: uuid
         displayName:
           type: string
         avatarUrl:
           type: string
+          format: uri
+          nullable: true
         bio:
           type: string
-      required: [id, displayName]
-    UserStats:
+          nullable: true
+        email:
+          type: string
+          format: email
+        provider:
+          type: string
+          enum:
+            - local
+            - "42"
+    TwoFactorStatus:
       type: object
+      required:
+        - status
+        - pendingExpiresAt
+        - lastVerifiedAt
+        - recoveryCodesCreatedAt
       properties:
-        wins:
+        status:
+          type: string
+          enum:
+            - disabled
+            - pending
+            - active
+        pendingExpiresAt:
           type: integer
-        losses:
-          type: integer
-        currentStreak:
-          type: integer
-        longestStreak:
-          type: integer
-        lastMatchAt:
+          nullable: true
+        lastVerifiedAt:
           type: string
           format: date-time
-    ChatChannel:
+          nullable: true
+        recoveryCodesCreatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    TwoFactorEnrollmentStart:
       type: object
+      required:
+        - status
+        - secret
+        - otpauthUrl
+        - qrCodeDataUrl
+        - recoveryCodes
+        - expiresAt
+      properties:
+        status:
+          type: string
+          enum:
+            - pending
+            - active
+            - disabled
+        secret:
+          type: string
+        otpauthUrl:
+          type: string
+        qrCodeDataUrl:
+          type: string
+        recoveryCodes:
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: integer
+    TwoFactorConfirmRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+    TwoFactorDisableRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Required when two-factor authentication is active.
+    TwoFactorRecoveryRegenerateRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+    TwoFactorRecoveryCodesResponse:
+      type: object
+      required:
+        - recoveryCodes
+      properties:
+        recoveryCodes:
+          type: array
+          items:
+            type: string
+    TrustedDevice:
+      type: object
+      required:
+        - id
+        - deviceName
+        - userAgent
+        - ipAddress
+        - lastUsedAt
+        - expiresAt
+        - revokedAt
       properties:
         id:
           type: string
+          format: uuid
+        deviceName:
+          type: string
+          nullable: true
+        userAgent:
+          type: string
+          nullable: true
+        ipAddress:
+          type: string
+          nullable: true
+        lastUsedAt:
+          type: integer
+        expiresAt:
+          type: integer
+        revokedAt:
+          type: integer
+          nullable: true
+    TrustedDeviceList:
+      type: object
+      required:
+        - devices
+        - totalActive
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrustedDevice"
+        totalActive:
+          type: integer
+    TrustedDevicesRevokeAllResponse:
+      type: object
+      required:
+        - removed
+      properties:
+        removed:
+          type: integer
+          minimum: 0
+    ChatChannel:
+      type: object
+      required:
+        - id
+        - slug
+        - title
+        - visibility
+        - createdBy
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
         slug:
           type: string
         title:
           type: string
         visibility:
           type: string
-          enum: [public, private]
+          enum:
+            - public
+            - private
         createdBy:
           type: string
+          format: uuid
         createdAt:
           type: string
           format: date-time
-      required: [id, slug, title, visibility, createdBy, createdAt]
     ChatChannelCreate:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+        visibility:
+          type: string
+          enum:
+            - public
+            - private
+          default: public
+        slug:
+          type: string
+          nullable: true
+    ChatChannelUpdate:
       type: object
       properties:
         title:
           type: string
         visibility:
           type: string
-          enum: [public, private]
-        slug:
-          type: string
-      required: [title]
+          enum:
+            - public
+            - private
+      description: At least one field is required to update the channel.
     ChatMembership:
       type: object
+      required:
+        - channelId
+        - userId
+        - role
+        - joinedAt
       properties:
         channelId:
           type: string
+          format: uuid
         userId:
           type: string
+          format: uuid
         role:
           type: string
-          enum: [member, admin]
+          enum:
+            - member
+            - admin
         joinedAt:
           type: string
           format: date-time
-      required: [channelId, userId, role, joinedAt]
     ChatMessage:
       type: object
+      required:
+        - id
+        - channelId
+        - senderId
+        - content
+        - type
+        - dmTargetId
+        - createdAt
       properties:
         id:
           type: string
+          format: uuid
         channelId:
           type: string
+          format: uuid
           nullable: true
         senderId:
           type: string
+          format: uuid
         content:
           type: string
         type:
           type: string
-          enum: [channel, dm]
+          enum:
+            - channel
+            - dm
         dmTargetId:
           type: string
+          format: uuid
           nullable: true
         createdAt:
           type: string
           format: date-time
-      required: [id, senderId, content, type, createdAt]
     ChatChannelMessageCreate:
       type: object
+      required:
+        - content
       properties:
         content:
           type: string
           minLength: 1
           maxLength: 2000
-      required: [content]
     ChatDirectMessageCreate:
       type: object
+      required:
+        - content
       properties:
         content:
           type: string
           minLength: 1
           maxLength: 2000
-      required: [content]
     ChatBlock:
       type: object
+      required:
+        - blockerId
+        - blockedId
+        - createdAt
       properties:
         blockerId:
           type: string
+          format: uuid
         blockedId:
           type: string
+          format: uuid
         reason:
           type: string
           nullable: true
         createdAt:
           type: string
           format: date-time
-      required: [blockerId, blockedId, createdAt]
     ChatBlockCreate:
       type: object
       properties:
         reason:
           type: string
-      additionalProperties: false
+          maxLength: 280
+    ChatConversation:
+      type: object
+      required:
+        - otherId
+        - lastMessageAt
+      properties:
+        otherId:
+          type: string
+          format: uuid
+        lastMessageAt:
+          type: string
+          format: date-time
     Tournament:
       type: object
+      required:
+        - id
+        - name
+        - status
+        - createdAt
+        - startedAt
+        - completedAt
       properties:
         id:
           type: string
+          format: uuid
         name:
           type: string
         status:
           type: string
-        startsAt:
+          enum:
+            - pending
+            - running
+            - completed
+        createdAt:
           type: string
           format: date-time
-      required: [id, name, status, startsAt]
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
     TournamentCreate:
       type: object
+      required:
+        - name
       properties:
         name:
           type: string
-        startsAt:
-          type: string
-          format: date-time
-        maxPlayers:
-          type: integer
-      required: [name, startsAt, maxPlayers]
-    MatchRecord:
+    TournamentPlayer:
       type: object
+      required:
+        - id
+        - tournamentId
+        - alias
+        - userId
+        - queuedAt
+        - createdAt
       properties:
         id:
           type: string
-        playerOneId:
-          type: string
-        playerTwoId:
-          type: string
-        status:
-          type: string
-        winnerId:
-          type: string
-          nullable: true
-      required: [id, playerOneId, playerTwoId, status]
-    MatchReport:
-      type: object
-      properties:
-        matchId:
-          type: string
-        winnerId:
-          type: string
-      required: [matchId, winnerId]
-    ChatEvent:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [message, system]
-        payload:
-          oneOf:
-            - $ref: '#/components/schemas/ChatMessage'
-            - type: object
-              properties:
-                message:
-                  type: string
-      required: [type, payload]
-    TournamentEvent:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [bracket.seeded, bracket.updated, participant.status]
+          format: uuid
         tournamentId:
           type: string
-        payload:
-          type: object
-          additionalProperties: true
-      required: [type, tournamentId, payload]
-    MatchEvent:
-      type: object
-      properties:
-        type:
+          format: uuid
+        alias:
           type: string
-          enum: [match.assigned, match.updated]
+        userId:
+          type: string
+          format: uuid
+          nullable: true
+        queuedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    TournamentRegister:
+      type: object
+      required:
+        - tournamentId
+        - alias
+      properties:
+        tournamentId:
+          type: string
+          format: uuid
+        alias:
+          type: string
+        userId:
+          type: string
+          format: uuid
+          nullable: true
+    TournamentQueueJoin:
+      type: object
+      required:
+        - playerId
+      properties:
+        playerId:
+          type: string
+          format: uuid
+    TournamentQueueLeave:
+      type: object
+      required:
+        - playerId
+      properties:
+        playerId:
+          type: string
+          format: uuid
+    TournamentOpponent:
+      type: object
+      required:
+        - playerId
+        - alias
+      properties:
+        playerId:
+          type: string
+          format: uuid
+        alias:
+          type: string
+    TournamentMatch:
+      type: object
+      required:
+        - id
+        - tournamentId
+        - p1Id
+        - p2Id
+        - order
+        - status
+        - winnerId
+        - p1Score
+        - p2Score
+        - createdAt
+        - announcedAt
+        - completedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        tournamentId:
+          type: string
+          format: uuid
+        p1Id:
+          type: string
+          format: uuid
+        p2Id:
+          type: string
+          format: uuid
+        order:
+          type: integer
+        status:
+          type: string
+          enum:
+            - pending
+            - announced
+            - completed
+        winnerId:
+          type: string
+          format: uuid
+          nullable: true
+        p1Score:
+          type: integer
+          nullable: true
+        p2Score:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        announcedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+    TournamentAnnounceNext:
+      type: object
+      required:
+        - matchId
+        - p1
+        - p2
+        - order
+      properties:
         matchId:
           type: string
-        payload:
-          type: object
-          additionalProperties: true
-      required: [type, matchId, payload]
+          format: uuid
+        p1:
+          $ref: "#/components/schemas/TournamentOpponent"
+        p2:
+          $ref: "#/components/schemas/TournamentOpponent"
+        order:
+          type: integer
+          minimum: 1
+    TournamentResult:
+      type: object
+      required:
+        - matchId
+        - p1Score
+        - p2Score
+        - winnerId
+      properties:
+        matchId:
+          type: string
+          format: uuid
+        p1Score:
+          type: integer
+        p2Score:
+          type: integer
+        winnerId:
+          type: string
+          format: uuid
+    TournamentBoardEntry:
+      type: object
+      required:
+        - matchId
+        - order
+        - p1
+        - p2
+        - status
+        - winnerId
+        - p1Score
+        - p2Score
+      properties:
+        matchId:
+          type: string
+          format: uuid
+        order:
+          type: integer
+        p1:
+          $ref: "#/components/schemas/TournamentOpponent"
+        p2:
+          $ref: "#/components/schemas/TournamentOpponent"
+        status:
+          type: string
+          enum:
+            - pending
+            - announced
+            - completed
+        winnerId:
+          type: string
+          format: uuid
+          nullable: true
+        p1Score:
+          type: integer
+          nullable: true
+        p2Score:
+          type: integer
+          nullable: true
+    TournamentBoard:
+      type: array
+      items:
+        $ref: "#/components/schemas/TournamentBoardEntry"
+    MatchCreateRequest:
+      type: object
+      required:
+        - requesterId
+      properties:
+        tournamentId:
+          type: string
+          format: uuid
+          nullable: true
+        requesterId:
+          type: string
+          format: uuid
+        opponentId:
+          type: string
+          format: uuid
+          nullable: true
+    MatchCreateResponse:
+      type: object
+      required:
+        - matchId
+      properties:
+        matchId:
+          type: string
+          format: uuid
+    MatchParticipants:
+      type: object
+      required:
+        - p1
+        - p2
+      properties:
+        p1:
+          $ref: "#/components/schemas/TournamentOpponent"
+        p2:
+          $ref: "#/components/schemas/TournamentOpponent"
+    MatchScore:
+      type: object
+      required:
+        - p1Score
+        - p2Score
+        - winnerId
+      properties:
+        p1Score:
+          type: integer
+        p2Score:
+          type: integer
+        winnerId:
+          type: string
+          format: uuid
+          nullable: true
+    MatchDetail:
+      type: object
+      required:
+        - matchId
+        - tournamentId
+        - status
+        - startedAt
+        - finishedAt
+        - participants
+        - lastScore
+      properties:
+        matchId:
+          type: string
+          format: uuid
+        tournamentId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - pending
+            - announced
+            - completed
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        participants:
+          $ref: "#/components/schemas/MatchParticipants"
+        lastScore:
+          $ref: "#/components/schemas/MatchScore"
+          nullable: true
+    MatchResult:
+      $ref: "#/components/schemas/TournamentResult"
+    MatchOk:
+      type: object
+      required:
+        - ok
+      properties:
+        ok:
+          type: boolean
+          const: true
+    UserProfile:
+      type: object
+      required:
+        - userId
+        - displayName
+        - avatarUrl
+        - createdAt
+        - updatedAt
+      properties:
+        userId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    UserProfileUpdate:
+      type: object
+      properties:
+        displayName:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: ^[A-Za-z0-9 _\-]+$
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+      description: At least one field must be provided.
+    UserRecentMatch:
+      type: object
+      required:
+        - matchId
+        - opponentId
+        - p1Score
+        - p2Score
+        - outcome
+        - ts
+      properties:
+        matchId:
+          type: string
+          format: uuid
+        opponentId:
+          type: string
+          format: uuid
+          nullable: true
+        p1Score:
+          type: integer
+        p2Score:
+          type: integer
+        outcome:
+          type: string
+          enum:
+            - win
+            - loss
+        ts:
+          type: string
+          format: date-time
+    UserStats:
+      type: object
+      required:
+        - userId
+        - wins
+        - losses
+        - streak
+        - lastResult
+        - updatedAt
+        - recent
+      properties:
+        userId:
+          type: string
+          format: uuid
+        wins:
+          type: integer
+        losses:
+          type: integer
+        streak:
+          type: integer
+        lastResult:
+          type: string
+          enum:
+            - win
+            - loss
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+        recent:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserRecentMatch"
+    LeaderboardEntry:
+      type: object
+      required:
+        - rank
+        - userId
+        - displayName
+        - avatarUrl
+        - wins
+        - losses
+        - winRate
+        - currentStreak
+        - lastResult
+        - lastMatchAt
+        - updatedAt
+      properties:
+        rank:
+          type: integer
+        userId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        wins:
+          type: integer
+        losses:
+          type: integer
+        winRate:
+          type: number
+          minimum: 0
+          maximum: 1
+          nullable: true
+        currentStreak:
+          type: integer
+        lastResult:
+          type: string
+          enum:
+            - win
+            - loss
+          nullable: true
+        lastMatchAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+    LeaderboardResponse:
+      type: array
+      items:
+        $ref: "#/components/schemas/LeaderboardEntry"
+    DocsBundle:
+      type: object
+      description: Bundled OpenAPI specification document in JSON form.
+      additionalProperties: true
+    DocsHtml:
+      type: string
+      description: Rendered HTML for the documentation UI.
+    ChatWsClientMessage:
+      description: Client-initiated messages accepted by the chat WebSocket.
+      oneOf:
+        - type: object
+          required:
+            - type
+            - room
+          properties:
+            type:
+              type: string
+              const: join
+            room:
+              type: string
+        - type: object
+          required:
+            - type
+            - room
+            - body
+          properties:
+            type:
+              type: string
+              const: channel
+            room:
+              type: string
+            body:
+              type: string
+              minLength: 1
+              maxLength: 2000
+        - type: object
+          required:
+            - type
+            - to
+            - body
+          properties:
+            type:
+              type: string
+              const: dm
+            to:
+              type: string
+              format: uuid
+            body:
+              type: string
+              minLength: 1
+              maxLength: 2000
+        - type: object
+          required:
+            - type
+            - userId
+          properties:
+            type:
+              type: string
+              const: block
+            userId:
+              type: string
+              format: uuid
+            reason:
+              type: string
+              maxLength: 280
+              nullable: true
+        - type: object
+          required:
+            - type
+            - userId
+          properties:
+            type:
+              type: string
+              const: unblock
+            userId:
+              type: string
+              format: uuid
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              const: ping
+      discriminator:
+        propertyName: type
+    ChatWsServerEvent:
+      description: Events emitted by the chat WebSocket server.
+      oneOf:
+        - type: object
+          required:
+            - type
+            - userId
+          properties:
+            type:
+              type: string
+              const: welcome
+            userId:
+              type: string
+              format: uuid
+        - type: object
+          required:
+            - type
+            - room
+          properties:
+            type:
+              type: string
+              const: joined
+            room:
+              type: string
+        - type: object
+          required:
+            - type
+            - room
+            - userId
+            - online
+          properties:
+            type:
+              type: string
+              const: presence
+            room:
+              type: string
+            userId:
+              type: string
+              format: uuid
+            online:
+              type: boolean
+        - type: object
+          required:
+            - type
+            - from
+            - body
+            - ts
+          properties:
+            type:
+              type: string
+              const: message
+            from:
+              type: string
+              format: uuid
+            body:
+              type: string
+            ts:
+              type: string
+              format: date-time
+            room:
+              type: string
+              nullable: true
+            to:
+              type: string
+              format: uuid
+              nullable: true
+        - type: object
+          required:
+            - type
+            - userId
+          properties:
+            type:
+              type: string
+              const: blocked
+            userId:
+              type: string
+              format: uuid
+        - type: object
+          required:
+            - type
+            - userId
+          properties:
+            type:
+              type: string
+              const: unblocked
+            userId:
+              type: string
+              format: uuid
+        - type: object
+          required:
+            - type
+            - error
+          properties:
+            type:
+              type: string
+              const: error
+            error:
+              type: string
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              const: pong
+            ts:
+              type: integer
+              nullable: true
+      discriminator:
+        propertyName: type
+    MatchWsClientMessage:
+      description: Client payloads accepted by the match coordination WebSocket.
+      oneOf:
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              const: join
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              const: leave
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              const: ping
+        - type: object
+          required:
+            - type
+            - payload
+          properties:
+            type:
+              type: string
+              const: state
+            payload:
+              type: object
+              description: >
+                Arbitrary JSON match state snapshot forwarded without mutation. A
+                typical payload includes keys such as `ball` (with `x`/`y`
+                coordinates), `paddles`, `score`, latency indicators, or any other
+                metadata the clients require to stay in sync.
+              additionalProperties: true
+      discriminator:
+        propertyName: type
+    MatchWsServerEvent:
+      description: Events emitted by the match coordination WebSocket.
+      oneOf:
+        - type: object
+          required:
+            - type
+            - matchId
+          properties:
+            type:
+              type: string
+              const: joined
+            matchId:
+              type: string
+              format: uuid
+        - type: object
+          required:
+            - type
+            - matchId
+          properties:
+            type:
+              type: string
+              const: left
+            matchId:
+              type: string
+              format: uuid
+        - type: object
+          required:
+            - type
+            - matchId
+            - match
+            - playerId
+          properties:
+            type:
+              type: string
+              const: match
+            matchId:
+              type: string
+              format: uuid
+            playerId:
+              type: string
+              format: uuid
+            match:
+              $ref: "#/components/schemas/TournamentMatch"
+        - type: object
+          required:
+            - type
+            - matchId
+            - from
+            - payload
+            - ts
+          properties:
+            type:
+              type: string
+              const: state
+            matchId:
+              type: string
+              format: uuid
+            from:
+              type: string
+              format: uuid
+            payload:
+              type: object
+              additionalProperties: true
+            ts:
+              type: string
+              format: date-time
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              const: pong
+        - type: object
+          required:
+            - type
+            - error
+          properties:
+            type:
+              type: string
+              const: error
+            error:
+              type: string
+      discriminator:
+        propertyName: type
+    TournamentWsClientMessage:
+      description: Client payloads accepted by the tournament announcement WebSocket.
+      oneOf:
+        - type: object
+          required:
+            - type
+            - tournamentId
+          properties:
+            type:
+              type: string
+              const: subscribe
+            tournamentId:
+              type: string
+              format: uuid
+        - type: object
+          required:
+            - type
+            - tournamentId
+          properties:
+            type:
+              type: string
+              const: unsubscribe
+            tournamentId:
+              type: string
+              format: uuid
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              const: ping
+      discriminator:
+        propertyName: type
+    TournamentWsServerEvent:
+      description: Events emitted by the tournament announcement WebSocket.
+      oneOf:
+        - type: object
+          required:
+            - type
+            - tournamentId
+          properties:
+            type:
+              type: string
+              const: subscribed
+            tournamentId:
+              type: string
+              format: uuid
+        - type: object
+          required:
+            - type
+            - tournamentId
+          properties:
+            type:
+              type: string
+              const: unsubscribed
+            tournamentId:
+              type: string
+              format: uuid
+        - type: object
+          required:
+            - type
+            - tournamentId
+            - payload
+          properties:
+            type:
+              type: string
+              const: announceNext
+            tournamentId:
+              type: string
+              format: uuid
+            payload:
+              $ref: "#/components/schemas/TournamentAnnounceNext"
+        - type: object
+          required:
+            - type
+            - tournamentId
+            - payload
+          properties:
+            type:
+              type: string
+              const: result
+            tournamentId:
+              type: string
+              format: uuid
+            payload:
+              $ref: "#/components/schemas/TournamentMatch"
+        - type: object
+          required:
+            - type
+            - error
+          properties:
+            type:
+              type: string
+              const: error
+            error:
+              type: string
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              const: pong
+      discriminator:
+        propertyName: type

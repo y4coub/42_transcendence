@@ -26,9 +26,9 @@ Run `docs/manual-validation/full-run.md` for the complete smoke sequence. Indivi
 2. `docker compose -f docker/compose.yml up --build`
 3. `docker compose -f docker/compose.yml exec api npm run migrate:up`
 4. Verify:
-   - `https://localhost:3000/healthz`
-   - `https://localhost:3000/openapi.yaml`
-   - `https://localhost:3000/docs`
+   - `http://localhost:3000/healthz`
+   - `http://localhost:3000/openapi.yaml`
+   - `http://localhost:3000/docs`
 5. Execute manual validation runbook and log findings below.
 
 ## Known Issues & Follow-Ups

@@ -9,7 +9,7 @@ Use this script for end-to-end validation before shipping a release. Estimated t
 - Tools installed: `curl`, `jq`, browser, and WebSocket inspector (e.g., browser devtools).
 
 ## 1. Bootstrap & Health
-1. Hit `https://localhost/healthz`; expect `{ "status": "ok" }`.
+1. Hit `http://localhost/healthz`; expect `{ "status": "ok" }`.
 2. Confirm Caddy presents valid certificate (self-signed or trusted dev CA).
 3. Review API logs for startup messages and absence of errors.
 
@@ -45,7 +45,7 @@ Follow `docs/manual-validation/profile.md`:
 
 ## 7. Documentation Portal
 Follow `docs/manual-validation/docs.md`:
-- Ensure `https://localhost/openapi.yaml` serves the bundle.
+- Ensure `http://localhost/openapi.yaml` serves the bundle.
 - Confirm Scalar UI renders at `/docs` and displays endpoints updated above.
 
 ## 8. Observability & Rate Limits

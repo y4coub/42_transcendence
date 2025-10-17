@@ -4,8 +4,11 @@ import type { FastifyPluginAsync } from 'fastify';
 import { onTournamentResult } from '@tournament/service';
 
 import { processMatchResult } from './aggregator';
+import statsRoutes from './routes';
 
 const statsModule: FastifyPluginAsync = async (app) => {
+	await app.register(statsRoutes);
+
 	const removeListener = onTournamentResult(({ match }) => {
 		try {
 			processMatchResult(match);

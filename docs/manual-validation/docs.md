@@ -10,14 +10,14 @@ Use this checklist to confirm the documentation experience before release.
 ## 1. OpenAPI Bundle Available
 1. Request the raw spec:
    ```bash
-   curl -sS https://localhost/openapi.yaml
+   curl -sS http://localhost/openapi.yaml
    ```
    - Expect HTTP `200` with YAML payload.
    - (Optional) pipe to `head`/`jq` to confirm structure.
 2. Introduce network failure (disable API) and re-try to ensure the server returns an error (should fail, confirming live endpoint).
 
 ## 2. Scalar UI Rendering
-1. Visit `https://localhost/docs` in a browser.
+1. Visit `http://localhost/docs` in a browser.
    - Confirm Scalar loads without mixed-content warnings.
    - Verify the title shows "FT Backend API Docs" and navigation lists all modules (Auth, Users, Chat, Tournament, Matches, Docs).
 2. Expand an endpoint (e.g., `POST /auth/login`) and ensure request/response schemas align with expectations.
@@ -32,7 +32,7 @@ Use this checklist to confirm the documentation experience before release.
 ## 4. Download & Client Integration
 1. Save the spec locally:
    ```bash
-   curl -sS https://localhost/openapi.yaml -o api-spec.yaml
+   curl -sS http://localhost/openapi.yaml -o api-spec.yaml
    ```
    - Confirm file size is reasonable (>0 bytes) and `head api-spec.yaml` shows YAML header.
 2. Import the downloaded file into a REST client (Insomnia, Postman, etc.) to verify schema parses cleanly.

@@ -13,11 +13,11 @@
 > Tip: When capturing QR data in headless environments, use the returned `otpauthUrl` to seed your authenticator manually if rendering the data URL is inconvenient.
 
 ## 1. Baseline Status
-1. GET `https://localhost/auth/2fa/status` with `Authorization: Bearer <accessToken>`.
+1. GET `http://localhost/auth/2fa/status` with `Authorization: Bearer <accessToken>`.
 2. Expect `200` with `status: "disabled"` and `pendingExpiresAt`, `lastVerifiedAt`, `recoveryCodesCreatedAt` all `null`.
 
 ## 2. Start Enrollment
-1. POST `https://localhost/auth/2fa/enroll/start`.
+1. POST `http://localhost/auth/2fa/enroll/start`.
 2. Expect `200` with:
    - `status: "pending"`.
    - `secret`, `otpauthUrl`, and `qrCodeDataUrl` (base64 data URL).
@@ -27,7 +27,7 @@
 
 ## 3. Confirm Enrollment
 1. Generate a current TOTP code from the authenticator.
-2. POST `https://localhost/auth/2fa/enroll/confirm` with body `{ "code": "123456" }` (replace with real code).
+2. POST `http://localhost/auth/2fa/enroll/confirm` with body `{ "code": "123456" }` (replace with real code).
 3. Expect `200` with `status: "active"`, `pendingExpiresAt: null`, and `recoveryCodesCreatedAt` populated.
 4. GET `/auth/2fa/status` again to confirm persisted state (`lastVerifiedAt` should be non-null).
 
@@ -35,7 +35,7 @@
 1. Logout to clear the active session (`POST /auth/logout`).
 2. Attempt standard login `POST /auth/login` with email/password.
 3. Expect `202` and response `{ type: "challenge", challengeId, challengeToken, expiresAt }`.
-4. Immediately POST `https://localhost/auth/login/challenge` with body:
+4. Immediately POST `http://localhost/auth/login/challenge` with body:
    ```json
    {
      "challengeId": "<from step 3>",

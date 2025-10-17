@@ -36,8 +36,8 @@ This runs the custom migration runner applying SQL files in `db/migrations/` usi
    npm run docs:generate
    ```
 3. After the stack is running, verify documentation endpoints:
-   - `https://localhost/openapi.yaml` returns the raw YAML specification.
-   - `https://localhost/docs` renders the interactive Scalar viewer.
+   - `http://localhost/openapi.yaml` returns the raw YAML specification.
+   - `http://localhost/docs` renders the interactive Scalar viewer.
 
 ## Running the Stack
 ```bash
@@ -54,7 +54,7 @@ Services started:
 3. Enroll TOTP 2FA, trigger login challenge, and verify trusted device bypass via `docs/manual-validation/2fa.md`.
 4. Join channel via REST, open WebSocket to `/ws/chat/{channel}`; send message and verify cross-client delivery.
 5. Create tournament and register test accounts; watch bracket notifications over WS.
-6. Hit `https://localhost/docs`; confirm endpoints reflect latest contracts, and optionally download `https://localhost/openapi.yaml` to ensure it matches the repository version.
+6. Hit `http://localhost/docs`; confirm endpoints reflect latest contracts, and optionally download `http://localhost/openapi.yaml` to ensure it matches the repository version.
 
 ## Shutdown
 ```bash

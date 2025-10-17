@@ -23,7 +23,7 @@ if (existsSync(localEnvPath) && localEnvPath !== defaultEnvPath) {
 
 dotenv.config({ override: false });
 
-const baseUrl = process.env.BASE_URL ?? 'http://localhost:3001';
+const baseUrl = process.env.BASE_URL ?? 'http://localhost:3000';
 if (baseUrl.startsWith('https://') && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
 	process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 }

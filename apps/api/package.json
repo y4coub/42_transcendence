@@ -15,7 +15,7 @@
 		"docs:generate": "scalar document bundle ../../specs/001-specify-scripts-bash/contracts/openapi.yaml --output ../../openapi/openapi.yaml",
 		"lint": "eslint \"src/**/*.{ts,tsx}\"",
 		"format": "prettier --check \"src/**/*.{ts,tsx}\"",
-		"dev:detached": "nohup npm run dev -- --port 3001 > /tmp/api-dev.log 2>&1 & echo $! > /tmp/api-dev.pid",
+		"dev:detached": "nohup npm run dev -- --port 3000 > /tmp/api-dev.log 2>&1 & echo $! > /tmp/api-dev.pid",
 		"dev:stop": "kill $(cat /tmp/api-dev.pid) || true",
 		"test:smoke": "node ./tests/run-smoke.mjs"
 	},
@@ -42,7 +42,7 @@
 		"zod": "^3.22.4"
 	},
 	"devDependencies": {
-		"@scalar/cli": "^1.1.5",
+		"@scalar/cli": "^1.3.4",
 		"@types/better-sqlite3": "^7.6.6",
 		"@types/node": "^20.10.6",
 		"@types/qrcode": "^1.5.5",
