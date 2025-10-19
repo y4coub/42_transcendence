@@ -1,0 +1,159 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-size: 16px;
+  --background: #121217;
+  --foreground: #e0e0e0;
+  --card: #1a1a24;
+  --card-foreground: #e0e0e0;
+  --popover: #1a1a24;
+  --popover-foreground: #e0e0e0;
+  --primary: #00c8ff;
+  --primary-foreground: #121217;
+  --secondary: #ff008c;
+  --secondary-foreground: #e0e0e0;
+  --muted: #2a2a38;
+  --muted-foreground: #9ca3af;
+  --accent: #00c8ff;
+  --accent-foreground: #121217;
+  --destructive: #ff008c;
+  --destructive-foreground: #e0e0e0;
+  --border: #00c8ff;
+  --input: #00c8ff;
+  --input-background: #1a1a24;
+  --switch-background: #2a2a38;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #00c8ff;
+  --chart-1: #00c8ff;
+  --chart-2: #ff008c;
+  --chart-3: #8b5cf6;
+  --chart-4: #10b981;
+  --chart-5: #f59e0b;
+  --radius: 0.25rem;
+  --sidebar: #1a1a24;
+  --sidebar-foreground: #e0e0e0;
+  --sidebar-primary: #00c8ff;
+  --sidebar-primary-foreground: #121217;
+  --sidebar-accent: #2a2a38;
+  --sidebar-accent-foreground: #e0e0e0;
+  --sidebar-border: #00c8ff;
+  --sidebar-ring: #00c8ff;
+}
+
+.dark {
+  --background: #121217;
+  --foreground: #e0e0e0;
+  --card: #1a1a24;
+  --card-foreground: #e0e0e0;
+  --popover: #1a1a24;
+  --popover-foreground: #e0e0e0;
+  --primary: #00c8ff;
+  --primary-foreground: #121217;
+  --secondary: #ff008c;
+  --secondary-foreground: #e0e0e0;
+  --muted: #2a2a38;
+  --muted-foreground: #9ca3af;
+  --accent: #00c8ff;
+  --accent-foreground: #121217;
+  --destructive: #ff008c;
+  --destructive-foreground: #e0e0e0;
+  --border: #00c8ff;
+  --input: #00c8ff;
+  --ring: #00c8ff;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: #00c8ff;
+  --chart-2: #ff008c;
+  --chart-3: #8b5cf6;
+  --chart-4: #10b981;
+  --chart-5: #f59e0b;
+  --sidebar: #1a1a24;
+  --sidebar-foreground: #e0e0e0;
+  --sidebar-primary: #00c8ff;
+  --sidebar-primary-foreground: #121217;
+  --sidebar-accent: #2a2a38;
+  --sidebar-accent-foreground: #e0e0e0;
+  --sidebar-border: #00c8ff;
+  --sidebar-ring: #00c8ff;
+}
+
+/* Map theme variables to color variables is redundant here because the CSS variables
+  are already declared above in :root and .dark. If you use a design system plugin
+  that expects @theme, reintroduce it there. */
+
+@layer base {
+  /* Basic reset: use CSS variables instead of unknown custom Tailwind utilities */
+  * {
+    box-sizing: border-box;
+    /* set a sensible default border and outline color from CSS variables */
+    border-color: var(--color-border, var(--border));
+    outline-color: var(--color-ring, var(--ring));
+  }
+
+  body {
+    background-color: var(--color-background, var(--background));
+    color: var(--color-foreground, var(--foreground));
+  }
+}
+
+/**
+ * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
+ */
+@layer base {
+  :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
+    h1 {
+      font-size: var(--text-2xl);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h2 {
+      font-size: var(--text-xl);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h3 {
+      font-size: var(--text-lg);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h4 {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    p {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+
+    label {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    button {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    input {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+  }
+}
+
+html {
+  font-size: var(--font-size);
+}
