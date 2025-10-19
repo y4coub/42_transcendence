@@ -3,6 +3,7 @@ import type { MatchOutcome } from '@stats/aggregator';
 
 export interface UserProfileRecord {
 	id: string;
+	email: string;
 	displayName: string;
 	avatarUrl: string | null;
 	createdAt: string;
@@ -12,6 +13,7 @@ export interface UserProfileRecord {
 export interface UpdateUserProfileInput {
 	displayName?: string;
 	avatarUrl?: string | null;
+	email?: string;
 }
 
 export interface UserStatsRecord {
@@ -35,6 +37,7 @@ export interface UserRecentMatchRecord {
 const profileSelect = `
 	SELECT
 		id,
+		email,
 		display_name AS displayName,
 		avatar_url AS avatarUrl,
 		STRFTIME('%Y-%m-%dT%H:%M:%fZ', created_at) AS createdAt,
@@ -82,6 +85,7 @@ export const getUserProfile = (userId: string): UserProfileRecord | null => {
 
 	return {
 		id: row.id as string,
+		email: row.email as string,
 		displayName: row.displayName as string,
 		avatarUrl: (row.avatarUrl as string | null) ?? null,
 		createdAt: row.createdAt as string,
@@ -107,6 +111,11 @@ export const updateUserProfile = (userId: string, updates: UpdateUserProfileInpu
 	if (updates.avatarUrl !== undefined) {
 		fields.push('avatar_url = @avatar_url');
 		params.avatar_url = updates.avatarUrl ?? null;
+	}
+
+	if (updates.email !== undefined) {
+		fields.push('email = @email');
+		params.email = updates.email;
 	}
 
 	if (fields.length === 0) {
@@ -152,5 +161,60 @@ export const listRecentMatches = (userId: string, limit = 10): UserRecentMatchRe
 		p2Score: typeof row.p2Score === 'number' ? (row.p2Score as number) : Number(row.p2Score ?? 0),
 		outcome: row.outcome as MatchOutcome,
 		ts: (row.ts as string) ?? new Date().toISOString(),
+	}));
+};
+
+export interface OnlineUserRecord {
+	userId: string;
+	displayName: string;
+	avatarUrl: string | null;
+	elo: number;
+	status: 'online' | 'in-game';
+}
+
+export const listOnlineUsers = (excludeUserId?: string): OnlineUserRecord[] => {
+	const db = getDatabase();
+	const now = Date.now();
+
+	// Get users with active sessions (not expired, not revoked)
+	// Calculate ELO as 1000 + (wins * 25) - (losses * 20) for ranking purposes
+	let query = `
+		SELECT DISTINCT
+			u.id AS userId,
+			u.display_name AS displayName,
+			u.avatar_url AS avatarUrl,
+			COALESCE(1000 + (us.wins * 25) - (us.losses * 20), 1000) AS elo,
+			CASE
+				WHEN EXISTS (
+					SELECT 1 FROM matches m
+					WHERE (m.p1Id = u.id OR m.p2Id = u.id)
+					AND m.state IN ('playing', 'countdown', 'paused')
+				) THEN 'in-game'
+				ELSE 'online'
+			END AS status
+		FROM users u
+		INNER JOIN sessions s ON u.id = s.user_id
+		LEFT JOIN user_stats us ON u.id = us.user_id
+		WHERE s.expires_at > @now
+			AND s.revoked_at IS NULL
+	`;
+
+	const params: Record<string, unknown> = { now };
+
+	if (excludeUserId) {
+		query += ' AND u.id != @exclude_user_id';
+		params.exclude_user_id = excludeUserId;
+	}
+
+	query += ' ORDER BY elo DESC, u.display_name ASC';
+
+	const rows = db.prepare(query).all(params) as Record<string, unknown>[];
+
+	return rows.map((row) => ({
+		userId: row.userId as string,
+		displayName: row.displayName as string,
+		avatarUrl: (row.avatarUrl as string | null) ?? null,
+		elo: typeof row.elo === 'number' ? row.elo : Number(row.elo ?? 1000),
+		status: (row.status as 'online' | 'in-game') ?? 'online',
 	}));
 };

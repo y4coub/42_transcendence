@@ -13,8 +13,8 @@
 		"migrate:up": "tsx src/infra/db/migrate.ts up",
 		"twofa:maintenance": "tsx src/auth/twofa/maintenance.ts",
 		"docs:generate": "scalar document bundle ../../specs/001-specify-scripts-bash/contracts/openapi.yaml --output ../../openapi/openapi.yaml",
-		"lint": "eslint \"src/**/*.{ts,tsx}\"",
-		"format": "prettier --check \"src/**/*.{ts,tsx}\"",
+		"lint": "eslint \"src/**/*.{ts,ts}\"",
+		"format": "prettier --check \"src/**/*.{ts,ts}\"",
 		"dev:detached": "nohup npm run dev -- --port 3000 > /tmp/api-dev.log 2>&1 & echo $! > /tmp/api-dev.pid",
 		"dev:stop": "kill $(cat /tmp/api-dev.pid) || true",
 		"test:smoke": "node ./tests/run-smoke.mjs"
@@ -54,7 +54,7 @@
 		"eslint-plugin-import": "^2.29.1",
 		"prettier": "^3.1.1",
 		"ts-node": "^10.9.2",
-		"tsx": "^4.7.0",
+		"ts": "^4.7.0",
 		"typescript": "^5.3.3"
 	}
 }

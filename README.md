@@ -35,7 +35,7 @@ specs/                # Specification, plan, tasks, research artifacts
 
 | Command | Purpose |
 |---------|---------|
-| `npm run dev` | Start Fastify in watch mode via `tsx` |
+| `npm run dev` | Start Fastify in watch mode via `ts` |
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm run start` | Run the compiled server from `dist/` |
 | `npm run migrate:up` | Execute forward-only SQLite migrations |

@@ -5,6 +5,7 @@ import { ZodTypeProvider } from 'fastify-type-provider-zod';
 import {
   loadUserProfile,
   loadUserStats,
+  loadOnlineUsers,
   updateProfile,
   ProfileServiceError,
 } from './service';
@@ -14,6 +15,7 @@ import {
   userProfileUpdateSchema,
   userStatsQuerySchema,
   userStatsSchema,
+  onlineUsersResponseSchema,
 } from './schemas';
 
 const usersRoutes: FastifyPluginAsync = async (app) => {
@@ -119,6 +121,27 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
           limit: request.query.limit,
         });
         return reply.send(stats);
+      } catch (error) {
+        translateServiceError(error);
+      }
+    },
+  );
+
+  router.get(
+    '/users/online',
+    {
+      schema: {
+        response: {
+          200: onlineUsersResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = await ensureAuthenticated(request);
+
+      try {
+        const onlineUsers = loadOnlineUsers(userId);
+        return reply.send(onlineUsers);
       } catch (error) {
         translateServiceError(error);
       }

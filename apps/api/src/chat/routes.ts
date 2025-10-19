@@ -74,8 +74,8 @@ const createChannelResponseSchema = z.object({
 
 const conversationsSchema = z.array(
   z.object({
-    otherId: z.string().uuid(),
-    lastMessageAt: z.string().datetime(),
+    otherId: z.string(),
+    lastMessageAt: z.string().datetime().optional().nullable(),
   }),
 );
 

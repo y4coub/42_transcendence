@@ -418,7 +418,72 @@ export const listRecentConversations = (userId: string, limit: number = 20) => {
       ORDER BY lastMessageAt DESC
       LIMIT @limit`,
     )
-    .all({ user: userId, limit }) as Array<{ otherId: string; lastMessageAt: string }>;
+    .all({ user: userId, limit }) as Array<{ otherId: string | null; lastMessageAt: string | null }>;
+  return rows
+    .filter((row) => typeof row.otherId === 'string' && row.otherId.length > 0)
+    .map((row) => ({
+      otherId: String(row.otherId),
+      lastMessageAt: row.lastMessageAt
+        ? new Date(row.lastMessageAt).toISOString()
+        : new Date().toISOString(),
+    }));
+};
 
-  return rows;
+/**
+ * Get chat messages for a specific match
+ * Used for in-game chat during Pong matches (Phase 6: T034)
+ */
+export interface ListMatchMessagesOptions {
+  limit?: number;
+  since?: string;
+}
+
+export const listMatchMessages = (matchId: string, options: ListMatchMessagesOptions = {}) => {
+  const db = getDatabase();
+  const clauses: string[] = ['matchId = @matchId'];
+  const params: Record<string, unknown> = {
+    matchId,
+  };
+
+  if (options.since) {
+    clauses.push('created_at >= @since');
+    params.since = options.since;
+  }
+
+  const limit = Math.min(Math.max(options.limit ?? 50, 1), 200);
+  params.limit = limit;
+
+  const rows = db
+    .prepare(`${selectMessage} WHERE ${clauses.join(' AND ')} ORDER BY created_at DESC LIMIT @limit`)
+    .all(params) as Record<string, unknown>[];
+
+  return mapRows(rows, chatMessageSchema);
+};
+
+/**
+ * Append a chat message to a match
+ * Used for in-game chat during Pong matches (Phase 6: T034)
+ */
+export interface AppendMatchMessageInput {
+  matchId: string;
+  senderId: string;
+  content: string;
+}
+
+export const appendMatchMessage = (input: AppendMatchMessageInput) => {
+  const db = getDatabase();
+  const id = randomUUID();
+
+  db.prepare(
+    `INSERT INTO chat_messages (id, channel_id, sender_id, content, type, dm_target_id, matchId)
+     VALUES (@id, NULL, @sender_id, @content, 'channel', NULL, @matchId)`,
+  ).run({
+    id,
+    sender_id: input.senderId,
+    content: input.content,
+    matchId: input.matchId,
+  });
+
+  const row = db.prepare(`${selectMessage} WHERE id = ?`).get(id) as Record<string, unknown> | undefined;
+  return mapRow(row, chatMessageSchema) ?? null;
 };

@@ -97,7 +97,7 @@ export type ChatMessageQuery = z.infer<typeof chatMessageQuerySchema>;
 export const chatBlockSchema = z.object({
   blockerId: z.string().uuid(),
   blockedId: z.string().uuid(),
-  reason: z.string().max(280).optional(),
+  reason: z.string().max(280).nullable().optional(),
   createdAt: z.string().datetime(),
 });
 

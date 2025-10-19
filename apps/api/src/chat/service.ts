@@ -16,6 +16,7 @@ import {
   addMembership,
   appendChannelMessage,
   appendDirectMessage,
+  appendMatchMessage,
   createChannel as createChannelRecord,
   deleteChannel as deleteChannelRecord,
   getChannelById,
@@ -26,6 +27,7 @@ import {
   listChannelMessages as listChannelMessagesFromStore,
   listChannels,
   listDirectMessages as listDirectMessagesFromStore,
+  listMatchMessages as listMatchMessagesFromStore,
   listMembershipsForChannel,
   listMembershipsForUser,
   listRecentConversations as listRecentConversationsFromStore,
@@ -202,7 +204,18 @@ export const deleteChannel = (userId: string, channelId: string): void => {
 
 export const joinChannelBySlug = (userId: string, slug: string): ChatMembership => {
   const channel = ensureChannel(getChannelBySlug(slug));
-  return ensureMembershipRecord(addMembership(channel.id, userId, 'member'));
+  const existingMembership = getMembership(channel.id, userId);
+
+  if (existingMembership) {
+    if (channel.createdBy === userId && existingMembership.role !== 'admin') {
+      return ensureMembershipRecord(setMembershipRole(channel.id, userId, 'admin'));
+    }
+
+    return existingMembership;
+  }
+
+  const initialRole: 'member' | 'admin' = channel.createdBy === userId ? 'admin' : 'member';
+  return ensureMembershipRecord(addMembership(channel.id, userId, initialRole));
 };
 
 export const leaveChannel = (userId: string, channelId: string): void => {
@@ -311,6 +324,31 @@ export const listDirectMessages = (userId: string, counterpartId: string, query:
 
   const options = chatMessageQuerySchema.parse(query ?? {});
   return listDirectMessagesFromStore(userId, counterpartId, {
+    limit: options.limit,
+    since: options.since,
+  });
+};
+
+/**
+ * Send a chat message during a match (Phase 6: T036)
+ */
+export const sendMatchMessage = (senderId: string, matchId: string, payload: unknown): ChatMessage => {
+  const messagePayload = chatChannelMessageCreateSchema.parse(payload);
+  return ensureMessageRecord(
+    appendMatchMessage({
+      senderId,
+      matchId,
+      content: messagePayload.content,
+    }),
+  );
+};
+
+/**
+ * List chat messages for a match (Phase 6: T036)
+ */
+export const listMatchMessages = (matchId: string, query: unknown): ChatMessage[] => {
+  const options = chatMessageQuerySchema.parse(query ?? {});
+  return listMatchMessagesFromStore(matchId, {
     limit: options.limit,
     since: options.since,
   });

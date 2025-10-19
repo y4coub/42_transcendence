@@ -151,6 +151,9 @@ const smokeSuites = [
 	{ label: 'matches-docs', file: './matches_docs.smoke.mjs' },
 	{ label: 'chat-ws', file: './chat.ws.smoke.mjs' },
 	{ label: 'security', file: './security.smoke.mjs' },
+	{ label: 'pong-game', file: './game.smoke.mjs' },
+	{ label: 'pong-reconnect', file: './reconnect.smoke.mjs' },
+	{ label: 'pong-lifecycle', file: './lifecycle.smoke.mjs' },
 ];
 
 const readinessTimeoutMs = 30_000;

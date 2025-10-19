@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { SocketStream } from '@fastify/websocket';
 import fp from 'fastify-plugin';
 import type { FastifyPluginAsync } from 'fastify';
@@ -7,9 +8,11 @@ import {
   joinChannelBySlug,
   sendChannelMessage,
   sendDirectMessage,
+  sendMatchMessage,
   unblockUser,
   isConversationBlocked,
 } from './service';
+import * as matchRepo from '@matches/repository';
 
 interface ClientMessageBase {
   type: string;
@@ -32,6 +35,23 @@ interface DirectMessage extends ClientMessageBase {
   body: string;
 }
 
+interface MatchMessage extends ClientMessageBase {
+  type: 'match';
+  matchId: string;
+  body: string;
+}
+
+interface MatchInviteMessage extends ClientMessageBase {
+  type: 'match_invite';
+  to: string;
+}
+
+interface MatchInviteResponseMessage extends ClientMessageBase {
+  type: 'match_invite_response';
+  inviteId: string;
+  accepted: boolean;
+}
+
 interface BlockMessage extends ClientMessageBase {
   type: 'block';
   userId: string;
@@ -47,7 +67,16 @@ interface PingMessage extends ClientMessageBase {
   type: 'ping';
 }
 
-type ClientMessage = JoinMessage | ChannelMessage | DirectMessage | BlockMessage | UnblockMessage | PingMessage;
+type ClientMessage =
+  | JoinMessage
+  | ChannelMessage
+  | DirectMessage
+  | MatchMessage
+  | MatchInviteMessage
+  | MatchInviteResponseMessage
+  | BlockMessage
+  | UnblockMessage
+  | PingMessage;
 
 interface SocketContext {
   stream: SocketStream;
@@ -62,6 +91,16 @@ const serialize = (payload: Record<string, unknown>) => JSON.stringify(payload);
 const chatWsPlugin: FastifyPluginAsync = async (app) => {
   const channelSubscriptions = new Map<string, Set<SocketContext>>();
   const userSockets = new Map<string, Set<SocketContext>>();
+  const pendingInvites = new Map<
+    string,
+    {
+      id: string;
+      from: string;
+      to: string;
+      expiresAt: number;
+      timeout: NodeJS.Timeout;
+    }
+  >();
 
   const sendToContext = (context: SocketContext, payload: Record<string, unknown>) => {
     if (context.stream.socket.readyState === context.stream.socket.OPEN) {
@@ -84,6 +123,38 @@ const chatWsPlugin: FastifyPluginAsync = async (app) => {
         context.stream.socket.send(serialize(payload));
       }
     }
+  };
+
+  const INVITE_TTL = 30_000;
+
+  const clearInvite = (inviteId: string) => {
+    const invite = pendingInvites.get(inviteId);
+    if (!invite) {
+      return null;
+    }
+    clearTimeout(invite.timeout);
+    pendingInvites.delete(inviteId);
+    return invite;
+  };
+
+  const expireInvite = (inviteId: string, reason: 'timeout' | 'disconnect') => {
+    const invite = clearInvite(inviteId);
+    if (!invite) {
+      return;
+    }
+
+    const payload = {
+      type: 'match_invite_expired',
+      inviteId,
+      opponentId: invite.from,
+      reason,
+    } satisfies Record<string, unknown>;
+
+    sendToUser(invite.to, payload);
+    sendToUser(invite.from, {
+      ...payload,
+      opponentId: invite.to,
+    });
   };
 
   const trackUserSocket = (context: SocketContext) => {
@@ -198,7 +269,14 @@ const chatWsPlugin: FastifyPluginAsync = async (app) => {
 
   const broadcastChannelMessage = (
     channelSlug: string,
-    event: { type: 'message'; from: string; room: string; body: string; ts: string },
+    event: {
+      type: 'channel';
+      from: string;
+      room: string;
+      content: string;
+      timestamp: string;
+      displayName?: string;
+    },
   ) => {
     const subscribers = channelSubscriptions.get(channelSlug);
     if (!subscribers) {
@@ -286,11 +364,11 @@ const chatWsPlugin: FastifyPluginAsync = async (app) => {
     try {
       const stored = sendChannelMessage(context.userId, message.room, { content: message.body });
       const event = {
-        type: 'message' as const,
+        type: 'channel' as const,
         from: context.userId,
         room: message.room,
-        body: stored.content,
-        ts: stored.createdAt,
+        content: stored.content,
+        timestamp: stored.createdAt,
       };
 
       broadcastChannelMessage(message.room, event);
@@ -313,22 +391,186 @@ const chatWsPlugin: FastifyPluginAsync = async (app) => {
 
     try {
       const stored = sendDirectMessage(context.userId, message.to, { content: message.body });
-      const event = {
-        type: 'message' as const,
-        from: context.userId,
-        to: message.to,
-        body: stored.content,
-        ts: stored.createdAt,
+      const commonPayload = {
+        content: stored.content,
+        timestamp: stored.createdAt,
       };
 
-      sendToUser(context.userId, event);
+      sendToUser(context.userId, {
+        type: 'dm',
+        from: context.userId,
+        userId: message.to,
+        content: commonPayload.content,
+        timestamp: commonPayload.timestamp,
+      });
 
       if (!isConversationBlocked(message.to, context.userId)) {
-        sendToUser(message.to, event);
+        sendToUser(message.to, {
+          type: 'dm',
+          from: context.userId,
+          userId: context.userId,
+          content: commonPayload.content,
+          timestamp: commonPayload.timestamp,
+        });
       }
     } catch (error) {
       app.log.warn({ err: error, to: message.to }, 'Failed to send direct message');
       sendToContext(context, { type: 'error', error: 'Unable to send direct message' });
+    }
+  };
+
+  /**
+   * Handle match chat messages (Phase 6: T036)
+   * Broadcast to both players in the match
+   */
+  const handleMatchMessage = (context: SocketContext, message: MatchMessage) => {
+    if (!message.matchId || typeof message.matchId !== 'string') {
+      sendToContext(context, { type: 'error', error: 'Invalid match message payload' });
+      return;
+    }
+
+    if (!message.body || typeof message.body !== 'string') {
+      sendToContext(context, { type: 'error', error: 'Message body required' });
+      return;
+    }
+
+    try {
+      // Verify user is a player in the match
+      const match = matchRepo.getMatch(message.matchId);
+      if (!match) {
+        sendToContext(context, { type: 'error', error: 'Match not found' });
+        return;
+      }
+
+      if (match.p1Id !== context.userId && match.p2Id !== context.userId) {
+        sendToContext(context, { type: 'error', error: 'You are not a player in this match' });
+        return;
+      }
+
+      // Store and broadcast message
+      const stored = sendMatchMessage(context.userId, message.matchId, { content: message.body });
+      const event = {
+        type: 'match_chat' as const,
+        matchId: message.matchId,
+        from: context.userId,
+        body: stored.content,
+        ts: stored.createdAt,
+      };
+
+      // Send to both players
+      sendToUser(match.p1Id, event);
+      sendToUser(match.p2Id, event);
+
+      app.log.debug({ matchId: message.matchId, from: context.userId }, 'Match chat message sent');
+    } catch (error) {
+      app.log.warn({ err: error, matchId: message.matchId }, 'Failed to send match message');
+      sendToContext(context, { type: 'error', error: 'Unable to send match message' });
+    }
+  };
+
+  const handleMatchInvite = (context: SocketContext, message: MatchInviteMessage) => {
+    const target = message.to;
+    if (!target || typeof target !== 'string') {
+      sendToContext(context, { type: 'error', error: 'Invalid invite payload' });
+      return;
+    }
+
+    if (target === context.userId) {
+      sendToContext(context, { type: 'error', error: 'Cannot invite yourself' });
+      return;
+    }
+
+    const inviteId = randomUUID();
+    const expiresAt = Date.now() + INVITE_TTL;
+
+    const timeout = setTimeout(() => {
+      expireInvite(inviteId, 'timeout');
+    }, INVITE_TTL);
+
+    pendingInvites.set(inviteId, {
+      id: inviteId,
+      from: context.userId,
+      to: target,
+      expiresAt,
+      timeout,
+    });
+
+    sendToContext(context, {
+      type: 'match_invite_sent',
+      inviteId,
+      to: target,
+      expiresAt,
+    });
+
+    sendToUser(target, {
+      type: 'match_invite',
+      inviteId,
+      from: context.userId,
+      expiresAt,
+    });
+  };
+
+  const handleMatchInviteResponse = (context: SocketContext, message: MatchInviteResponseMessage) => {
+    const invite = pendingInvites.get(message.inviteId);
+    if (!invite) {
+      sendToContext(context, { type: 'error', error: 'Invite not found or expired' });
+      return;
+    }
+
+    if (invite.to !== context.userId) {
+      sendToContext(context, { type: 'error', error: 'You are not the recipient of this invite' });
+      return;
+    }
+
+    clearInvite(message.inviteId);
+
+    if (!message.accepted) {
+      sendToUser(invite.from, {
+        type: 'match_invite_declined',
+        inviteId: invite.id,
+        opponentId: invite.to,
+      });
+      sendToContext(context, {
+        type: 'match_invite_cancelled',
+        inviteId: invite.id,
+        opponentId: invite.from,
+      });
+      return;
+    }
+
+    try {
+      const matchId = randomUUID();
+      const match = matchRepo.createMatch({
+        id: matchId,
+        p1Id: invite.from,
+        p2Id: invite.to,
+      });
+
+      sendToUser(invite.from, {
+        type: 'match_invite_accepted',
+        inviteId: invite.id,
+        matchId: match.id,
+        opponentId: invite.to,
+      });
+
+      sendToContext(context, {
+        type: 'match_invite_confirmed',
+        inviteId: invite.id,
+        matchId: match.id,
+        opponentId: invite.from,
+      });
+    } catch (error) {
+      app.log.error({ err: error, inviteId: invite.id }, 'Failed to create match from invite');
+      sendToUser(invite.from, {
+        type: 'match_invite_error',
+        inviteId: invite.id,
+        opponentId: invite.to,
+      });
+      sendToContext(context, {
+        type: 'match_invite_error',
+        inviteId: invite.id,
+        opponentId: invite.from,
+      });
     }
   };
 
@@ -371,12 +613,21 @@ const chatWsPlugin: FastifyPluginAsync = async (app) => {
 
   app.get('/ws/chat', { websocket: true }, async (stream, request) => {
     const authHeader = request.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    let token: string | null = null;
+
+    if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice('Bearer '.length).trim();
+    } else {
+      const query = (request.query as { token?: string } | undefined)?.token;
+      if (typeof query === 'string' && query.length > 0) {
+        token = query;
+      }
+    }
+
+    if (!token) {
       closeWithCode(stream, 4001, 'Unauthorized');
       return;
     }
-
-    const token = authHeader.slice('Bearer '.length).trim();
 
     let payload: unknown;
     try {
@@ -419,6 +670,15 @@ const chatWsPlugin: FastifyPluginAsync = async (app) => {
         case 'dm':
           handleDirectMessage(context, message);
           break;
+        case 'match':
+          handleMatchMessage(context, message);
+          break;
+        case 'match_invite':
+          handleMatchInvite(context, message);
+          break;
+        case 'match_invite_response':
+          handleMatchInviteResponse(context, message);
+          break;
         case 'block':
           handleBlock(context, message);
           break;
@@ -444,6 +704,17 @@ const chatWsPlugin: FastifyPluginAsync = async (app) => {
 
       context.channels.clear();
       untrackUserSocket(context);
+
+      const affectedInvites: string[] = [];
+      for (const [inviteId, invite] of pendingInvites.entries()) {
+        if (invite.from === context.userId || invite.to === context.userId) {
+          affectedInvites.push(inviteId);
+        }
+      }
+
+      affectedInvites.forEach((inviteId) => {
+        expireInvite(inviteId, 'disconnect');
+      });
     });
 
     stream.socket.on('error', (error: Error) => {

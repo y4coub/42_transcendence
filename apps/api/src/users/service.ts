@@ -5,12 +5,15 @@ import {
 	getUserStats,
 	listRecentMatches,
 	updateUserProfile,
+	listOnlineUsers,
 	type UpdateUserProfileInput,
+	type OnlineUserRecord,
 } from './repository';
 import {
 	userProfileSchema,
 	userProfileUpdateSchema,
 	userStatsSchema,
+	onlineUsersResponseSchema,
 	type UserProfileResponse,
 	type UserStatsResponse,
 } from './schemas';
@@ -36,6 +39,7 @@ export const loadUserProfile = (userId: string): PublicProfile => {
 
 	return userProfileSchema.parse({
 		userId: record.id,
+		email: record.email,
 		displayName: record.displayName,
 		avatarUrl: record.avatarUrl,
 		createdAt: record.createdAt,
@@ -57,14 +61,27 @@ export const updateProfile = (
 		throw new ProfileServiceError('INVALID_PAYLOAD', parsed.error.errors[0]?.message ?? 'Invalid payload');
 	}
 
-	const payload: UpdateUserProfileInput = parsed.data;
-	const record = updateUserProfile(targetUserId, payload);
+	const payload: UpdateUserProfileInput = {
+		displayName: parsed.data.displayName,
+		avatarUrl: parsed.data.avatarUrl,
+		email: parsed.data.email ? parsed.data.email.trim().toLowerCase() : undefined,
+	};
+	let record: ReturnType<typeof updateUserProfile> | null = null;
+	try {
+		record = updateUserProfile(targetUserId, payload);
+	} catch (error) {
+		if (error instanceof Error && /UNIQUE constraint failed: users\.email/.test(error.message)) {
+			throw new ProfileServiceError('INVALID_PAYLOAD', 'Email address already in use');
+		}
+		throw error;
+	}
 	if (!record) {
 		throw new ProfileServiceError('USER_NOT_FOUND', 'User profile not found');
 	}
 
 	return userProfileSchema.parse({
 		userId: record.id,
+		email: record.email,
 		displayName: record.displayName,
 		avatarUrl: record.avatarUrl,
 		createdAt: record.createdAt,
@@ -105,5 +122,20 @@ export const loadUserStats = (userId: string, options: LoadStatsOptions = {}): U
 			outcome: match.outcome,
 			ts: match.ts,
 		})),
+	});
+};
+
+export const loadOnlineUsers = (excludeUserId?: string) => {
+	const players = listOnlineUsers(excludeUserId);
+
+	return onlineUsersResponseSchema.parse({
+		players: players.map((player: OnlineUserRecord) => ({
+			userId: player.userId,
+			displayName: player.displayName,
+			avatarUrl: player.avatarUrl,
+			elo: player.elo,
+			status: player.status,
+		})),
+		total: players.length,
 	});
 };
