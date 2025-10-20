@@ -649,7 +649,12 @@ class PlayPage {
 		const paddleWidth = 0.02;
 		const ballSize = 0.02;
 		const paddleSpeed = 0.9;
-		const botSpeed = 0.7;
+		const botMaxSpeed = 0.95;
+		const botMinSpeed = 0.45;
+		const botReactionDelay = 0.12;
+		const botRandomAimOffset = 0.12;
+		const botCenterY = 0.5;
+		const botMistakeChance = 0.22;
 		const ballSpeed = 0.6;
 
 		let p1Y = 0.5;
@@ -660,6 +665,8 @@ class PlayPage {
 		let ballVY = ballSpeed * (Math.random() * 0.6 - 0.3);
 		let scoreP1 = 0;
 		let scoreP2 = 0;
+		let botTargetY = botCenterY;
+		let botReactionTimer = 0;
 
 		const keys: Record<string, boolean> = {};
 
@@ -672,6 +679,76 @@ class PlayPage {
 			const angle = (Math.random() * Math.PI) / 3 - Math.PI / 6;
 			ballVX = ballSpeed * Math.cos(angle) * direction;
 			ballVY = ballSpeed * Math.sin(angle);
+		};
+
+		const normalizeBounce = (y: number): number => {
+			let adjusted = y;
+			while (adjusted < 0 || adjusted > 1) {
+				if (adjusted < 0) {
+					adjusted = -adjusted;
+				} else if (adjusted > 1) {
+					adjusted = 2 - adjusted;
+				}
+			}
+			return adjusted;
+		};
+
+		const predictBotIntercept = (): number => {
+			if (ballVX <= 0.01) {
+				return clampPaddle(ballY);
+			}
+
+			const targetX = 1 - paddleWidth;
+			const travelX = targetX - ballX;
+			if (travelX <= 0) {
+				return clampPaddle(ballY);
+			}
+
+			const timeToReach = travelX / ballVX;
+			if (timeToReach <= 0 || !Number.isFinite(timeToReach)) {
+				return clampPaddle(ballY);
+			}
+
+			const projectedY = normalizeBounce(ballY + ballVY * timeToReach);
+			return clampPaddle(projectedY);
+		};
+
+		const updateBotPlayer = (dt: number) => {
+			botReactionTimer += dt;
+			const ballApproaching = ballVX > 0;
+
+			if (ballApproaching) {
+				if (botReactionTimer >= botReactionDelay) {
+					botReactionTimer = 0;
+					const predicted = predictBotIntercept();
+					let offset = (Math.random() - 0.5) * botRandomAimOffset;
+
+					if (Math.random() < botMistakeChance) {
+						offset += (Math.random() - 0.5) * 0.25;
+					}
+
+					const verticalBias = (Math.random() - 0.5) * Math.abs(ballVY) * 0.18;
+					botTargetY = clampPaddle(predicted + offset + verticalBias);
+				}
+			} else if (botReactionTimer >= botReactionDelay * 1.5) {
+				botReactionTimer = 0;
+				const offset = (Math.random() - 0.5) * 0.12;
+				botTargetY = clampPaddle(botCenterY + offset);
+			}
+
+			const error = botTargetY - p2Y;
+			if (Math.abs(error) < 0.005) {
+				return;
+			}
+
+			const direction = Math.sign(error);
+			const speedScale = Math.min(1, Math.abs(error) * 4);
+			const proximityBoost = Math.max(0, Math.min(1, (ballX - 0.6) * 1.7));
+			const baseSpeed = botMinSpeed + (botMaxSpeed - botMinSpeed) * speedScale;
+			const accuracyFactor = 0.7 + Math.max(0, 0.3 - Math.min(0.3, Math.abs(ballVY) * 0.45));
+			const speed = Math.min(botMaxSpeed, (baseSpeed + proximityBoost * 0.3) * accuracyFactor);
+
+			p2Y = clampPaddle(p2Y + direction * speed * dt);
 		};
 
 		const handleKeyDown = (event: KeyboardEvent) => {
@@ -782,9 +859,8 @@ class PlayPage {
 					p2Y = clampPaddle(p2Y + paddleSpeed * dt);
 				}
 			} else {
-				// Bot tracks the ball with a little delay
-				const delta = ballY - p2Y;
-				p2Y = clampPaddle(p2Y + Math.sign(delta) * botSpeed * dt * Math.min(1, Math.abs(delta) * 3));
+				// Bot predicts ball position and reacts quickly
+				updateBotPlayer(dt);
 			}
 
 		ballX += ballVX * dt;
