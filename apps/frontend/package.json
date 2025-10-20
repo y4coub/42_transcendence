@@ -15,5 +15,7 @@
     "typescript": "^5.2.2",
     "vite": "^7.1.9"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@ft/protocol": "file:../../packages/protocol"
+  }
 }
