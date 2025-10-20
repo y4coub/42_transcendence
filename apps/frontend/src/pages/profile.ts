@@ -144,11 +144,86 @@ function updateProfileStats(stats: UserStats): void {
   updateStatValue('[data-stat-wins]', String(stats.wins));
   updateStatValue('[data-stat-losses]', String(stats.losses));
   updateStatValue('[data-stat-streak]', String(stats.streak));
+  updateStatValue('[data-stat-games]', String(totalGames));
+
+  const recentMatches = stats.recent ?? [];
+  const recentCount = recentMatches.length;
+  const recentWins = recentMatches.filter((match) => match.outcome === 'win').length;
+  const recentLosses = recentCount - recentWins;
+  const avgPointsFor =
+    recentCount > 0
+      ? (recentMatches.reduce((sum, match) => sum + match.p1Score, 0) / recentCount)
+      : 0;
+  const avgPointsAgainst =
+    recentCount > 0
+      ? (recentMatches.reduce((sum, match) => sum + match.p2Score, 0) / recentCount)
+      : 0;
+
+  let bestWinMargin = Number.NEGATIVE_INFINITY;
+  let narrowLossMargin = Number.POSITIVE_INFINITY;
+  recentMatches.forEach((match) => {
+    const margin = match.p1Score - match.p2Score;
+    if (match.outcome === 'win') {
+      bestWinMargin = Math.max(bestWinMargin, margin);
+    } else {
+      narrowLossMargin = Math.min(narrowLossMargin, Math.abs(margin));
+    }
+  });
+
+  const recentWinRate = recentCount > 0 ? Math.round((recentWins / recentCount) * 100) : 0;
+
+  updateInsightValue('[data-insight-recent-record]', recentCount > 0 ? `${recentWins}W · ${recentLosses}L` : 'No recent games');
+  updateInsightValue('[data-insight-points-for]', `${avgPointsFor.toFixed(1)} pts`);
+  updateInsightValue('[data-insight-points-against]', `${avgPointsAgainst.toFixed(1)} pts`);
+  updateInsightValue('[data-insight-best-margin]', bestWinMargin > Number.NEGATIVE_INFINITY ? `+${bestWinMargin}` : '—');
+  updateInsightValue('[data-insight-closest-loss]', narrowLossMargin < Number.POSITIVE_INFINITY ? `-${narrowLossMargin}` : '—');
+  updateInsightValue(
+    '[data-insight-differential]',
+    recentCount > 0 ? `${(avgPointsFor - avgPointsAgainst).toFixed(1)} diff` : '—'
+  );
+  updateInsightValue(
+    '[data-insight-recent-summary]',
+    recentCount > 0 ? `Won ${recentWins} of last ${recentCount}` : 'Get a match in to build your streak.'
+  );
+  updateInsightValue(
+    '[data-insight-points-for-helper]',
+    recentCount > 0 ? `Across last ${recentCount} matches.` : 'Complete more matches to populate this insight.'
+  );
+  updateInsightValue(
+    '[data-insight-points-against-helper]',
+    recentCount > 0 ? `Across last ${recentCount} matches.` : 'Complete more matches to populate this insight.'
+  );
+  updateInsightValue(
+    '[data-insight-differential-helper]',
+    recentCount > 0 ? 'Positive means you outscored opponents on average.' : 'No data yet — every match counts!'
+  );
+  updateInsightValue(
+    '[data-insight-best-margin-helper]',
+    bestWinMargin > Number.NEGATIVE_INFINITY ? 'Largest goal difference in a win.' : 'Secure a win to see your best margin.'
+  );
+  updateInsightValue(
+    '[data-insight-closest-loss-helper]',
+    narrowLossMargin < Number.POSITIVE_INFINITY ? 'Smallest deficit in a recent loss.' : 'Avoided losses so far — keep it up!'
+  );
+
+  const trendBar = document.querySelector('[data-insight-recent-bar]') as HTMLElement | null;
+  if (trendBar) {
+    const effectiveRate = recentCount > 0 ? recentWinRate : 0;
+    trendBar.style.width = `${effectiveRate}%`;
+    trendBar.title = `Recent win rate: ${effectiveRate}%`;
+  }
 
   void updateRecentMatches(stats.recent);
 }
 
 function updateStatValue(selector: string, value: string): void {
+  const elements = document.querySelectorAll(selector);
+  elements.forEach((el) => {
+    el.textContent = value;
+  });
+}
+
+function updateInsightValue(selector: string, value: string): void {
   const elements = document.querySelectorAll(selector);
   elements.forEach((el) => {
     el.textContent = value;
@@ -558,6 +633,79 @@ export function createProfilePage(): HTMLElement {
 
   appendChildren(statsCard, [statsTitle, statsGrid]);
 
+  const insightsCard = createDiv("border border-[#00C8FF]/30 bg-[#1a1a24] rounded p-6 space-y-5");
+  const insightsHeader = createDiv("flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between");
+  const insightsTitle = createElement("h3", "text-lg font-semibold text-[#E0E0E0]");
+  insightsTitle.textContent = "Performance Insights";
+  const trendWrapper = createDiv("w-full sm:w-48");
+  const trendLabel = createElement("p", "text-xs uppercase tracking-wide text-[#E0E0E0]/50");
+  trendLabel.textContent = "Recent Win Rate";
+  const trendBarShell = createDiv("mt-2 h-2 rounded-full bg-[#23263a] overflow-hidden");
+  const trendBarFill = createDiv("h-full bg-gradient-to-r from-[#00C8FF] to-[#7B2BFF] transition-all duration-500 ease-out");
+  trendBarFill.style.width = "0%";
+  trendBarFill.setAttribute("data-insight-recent-bar", "true");
+  trendBarShell.appendChild(trendBarFill);
+  appendChildren(trendWrapper, [trendLabel, trendBarShell]);
+  appendChildren(insightsHeader, [insightsTitle, trendWrapper]);
+
+  const insightsGrid = createDiv("grid gap-4 sm:grid-cols-2");
+  const insightsConfig = [
+    {
+      label: "Last 10 Games",
+      valueAttr: "data-insight-recent-record",
+      helperAttr: "data-insight-recent-summary",
+      helperDefault: "Track your momentum over the last matches.",
+    },
+    {
+      label: "Avg Points Scored",
+      valueAttr: "data-insight-points-for",
+      helperAttr: "data-insight-points-for-helper",
+      helperDefault: "Average goals you put up per match.",
+    },
+    {
+      label: "Avg Points Conceded",
+      valueAttr: "data-insight-points-against",
+      helperAttr: "data-insight-points-against-helper",
+      helperDefault: "Average goals allowed per match.",
+    },
+    {
+      label: "Score Differential",
+      valueAttr: "data-insight-differential",
+      helperAttr: "data-insight-differential-helper",
+      helperDefault: "Positive numbers mean you're outscoring opponents.",
+    },
+    {
+      label: "Best Win Margin",
+      valueAttr: "data-insight-best-margin",
+      helperAttr: "data-insight-best-margin-helper",
+      helperDefault: "Largest recent victory margin.",
+    },
+    {
+      label: "Closest Loss",
+      valueAttr: "data-insight-closest-loss",
+      helperAttr: "data-insight-closest-loss-helper",
+      helperDefault: "Smallest margin in a recent defeat.",
+    },
+  ];
+
+  insightsConfig.forEach((item) => {
+    const card = createDiv("rounded border border-[#00C8FF]/20 bg-[#121217] p-4 space-y-2");
+    const label = createElement("p", "text-xs uppercase tracking-wide text-[#E0E0E0]/50");
+    label.textContent = item.label;
+    const value = createElement("p", "text-2xl font-semibold text-[#E0E0E0]");
+    value.textContent = "—";
+    value.setAttribute(item.valueAttr, "true");
+    const helper = createElement("p", "text-xs text-[#E0E0E0]/50");
+    helper.textContent = item.helperDefault;
+    if (item.helperAttr) {
+      helper.setAttribute(item.helperAttr, "true");
+    }
+    appendChildren(card, [label, value, helper]);
+    insightsGrid.appendChild(card);
+  });
+
+  appendChildren(insightsCard, [insightsHeader, insightsGrid]);
+
   // Recent Matches Card
   const historyCard = createDiv("border border-[#00C8FF]/30 bg-[#1a1a24] rounded p-6 space-y-4");
   const historyTitle = createElement("h3", "text-lg font-semibold text-[#E0E0E0]");
@@ -569,7 +717,7 @@ export function createProfilePage(): HTMLElement {
   historyList.appendChild(historyPlaceholder);
   appendChildren(historyCard, [historyTitle, historyList]);
 
-  appendChildren(content, [statsCard, historyCard]);
+  appendChildren(content, [statsCard, insightsCard, historyCard]);
   appendChildren(grid, [sidebar, content]);
   innerContainer.appendChild(grid);
   container.appendChild(innerContainer);
