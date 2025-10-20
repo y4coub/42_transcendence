@@ -21,7 +21,7 @@ export function createLoginPage(): HTMLElement {
 
   const backgroundVideo = createElement(
     "video",
-    "pointer-events-none absolute inset-0 h-full w-full object-cover"
+    "pointer-events-none absolute inset-0 h-full w-full"
   );
   backgroundVideo.muted = true;
   backgroundVideo.loop = true;
@@ -35,6 +35,9 @@ export function createLoginPage(): HTMLElement {
   backgroundVideo.src = "/bg.mp4";
   backgroundVideo.style.filter = "blur(32px) saturate(130%)";
   backgroundVideo.style.opacity = "0.65";
+  backgroundVideo.style.objectFit = "contain";
+  backgroundVideo.style.objectPosition = "center";
+  backgroundVideo.style.backgroundColor = "#030714";
 
   const glowA = createDiv("pointer-events-none absolute -top-40 -left-32 h-96 w-96 rounded-full blur-3xl opacity-60");
   glowA.style.background = "radial-gradient(circle at center, rgba(0,200,255,0.35), transparent 60%)";
