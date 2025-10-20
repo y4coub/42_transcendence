@@ -92,7 +92,7 @@ function createBadge(text: string, className: string): HTMLElement {
 function createStatusPill(text: string, className: string): HTMLElement {
   const pill = createElement(
     "span",
-    `text-[10px] uppercase tracking-[0.35em] px-3 py-1 rounded border ${className}`
+    `block w-full rounded-lg border px-4 py-2 text-center text-[10px] font-semibold uppercase tracking-[0.32em] ${className}`
   );
   pill.textContent = text;
   return pill;
@@ -258,20 +258,20 @@ function renderFriendSearch(): void {
   statusEl.textContent = friendSearchResults.length === 1 ? '1 player found.' : `${friendSearchResults.length} players found.`;
 
   friendSearchResults.forEach((result) => {
-    const row = createDiv('flex items-center justify-between rounded border border-[#00C8FF]/15 bg-[#151822] px-3 py-3 gap-3');
+    const row = createDiv('flex flex-col gap-3 rounded border border-[#00C8FF]/15 bg-[#151822] px-3 py-3');
 
-    const info = createDiv('flex min-w-0 flex-1 items-center gap-3');
+    const header = createDiv('flex items-center gap-3');
     const initials = result.displayName.substring(0, 2).toUpperCase();
     const avatar = createAvatar(initials, 'h-10 w-10', result.avatarUrl, 'border-[#00C8FF]/25');
-    const meta = createDiv('flex min-w-0 flex-col');
-    const name = createElement('span', 'truncate text-sm font-semibold text-[#E0E0E0]');
+    const meta = createDiv('min-w-0 flex-1');
+    const name = createElement('span', 'block truncate text-sm font-semibold text-[#E0E0E0]');
     name.textContent = result.displayName;
     appendChildren(meta, [name]);
-    appendChildren(info, [avatar, meta]);
-
-    const actions = createDiv('flex shrink-0 items-center gap-2');
+    appendChildren(header, [avatar, meta]);
+    row.appendChild(header);
 
     if (result.relationship === 'none') {
+      const buttonRow = createDiv('flex justify-end');
       const addBtn = createButton(
         'Add Friend',
         'rounded border border-[#00C8FF]/50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-[#00C8FF] transition-colors hover:bg-[#00C8FF]/10',
@@ -279,7 +279,8 @@ function renderFriendSearch(): void {
           void handleSendFriendRequest(result, addBtn);
         }
       );
-      actions.appendChild(addBtn);
+      buttonRow.appendChild(addBtn);
+      row.appendChild(buttonRow);
     } else {
       let pillText = '';
       let pillClass = '';
@@ -307,10 +308,11 @@ function renderFriendSearch(): void {
           break;
       }
 
-      actions.appendChild(createStatusPill(pillText, pillClass));
+      const statusRow = createDiv('w-full');
+      statusRow.appendChild(createStatusPill(pillText, pillClass));
+      row.appendChild(statusRow);
     }
 
-    appendChildren(row, [info, actions]);
     resultsContainer.appendChild(row);
   });
 }
