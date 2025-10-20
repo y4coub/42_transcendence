@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { userAvatarUrlSchema } from '@users/schemas';
 
 const displayNameSchema = z
   .string()
@@ -81,7 +82,7 @@ export type AuthTokens = z.infer<typeof authTokensSchema>;
 export const userProfileSchema = z.object({
   id: z.string().uuid(),
   displayName: displayNameSchema,
-  avatarUrl: z.string().url().optional(),
+  avatarUrl: userAvatarUrlSchema.optional(),
   bio: z.string().max(280).optional(),
 });
 

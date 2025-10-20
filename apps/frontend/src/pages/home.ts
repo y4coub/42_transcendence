@@ -1,5 +1,6 @@
 import { createDiv, createElement, createButton, createInput, appendChildren } from "../utils/dom";
 import { createIcon } from "../utils/icons";
+import { resolveAvatarUrl } from "../utils/avatar";
 import { getUserId } from "../lib/auth";
 import { dashboardState } from "../features/home/state";
 import type { DashboardState } from "../features/home/state";
@@ -57,25 +58,21 @@ function createAvatar(
   const avatar = createDiv(
     `${size} rounded-full border ${borderClass} bg-[#00C8FF]/10 flex items-center justify-center overflow-hidden`
   );
-  
-  if (avatarUrl) {
-    const img = document.createElement("img");
-    img.src = avatarUrl;
-    img.alt = initials;
-    img.className = "w-full h-full object-cover";
-    img.onerror = () => {
-      img.remove();
-      const text = createElement("span", "text-[#00C8FF]");
-      text.textContent = initials;
-      avatar.appendChild(text);
-    };
-    avatar.appendChild(img);
-  } else {
+
+  const resolvedAvatar = resolveAvatarUrl(avatarUrl);
+
+  const img = document.createElement("img");
+  img.src = resolvedAvatar;
+  img.alt = initials;
+  img.className = "w-full h-full object-cover";
+  img.onerror = () => {
+    img.remove();
     const text = createElement("span", "text-[#00C8FF]");
     text.textContent = initials;
     avatar.appendChild(text);
-  }
-  
+  };
+  avatar.appendChild(img);
+
   return avatar;
 }
 

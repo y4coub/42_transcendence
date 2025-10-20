@@ -6,6 +6,7 @@ import {
   appendChildren,
 } from "../utils/dom";
 import { createIcon } from "../utils/icons";
+import { resolveAvatarUrl } from "../utils/avatar";
 import { getAccessToken, getUserId } from "../lib/auth";
 import { chatWS, type ChatMessage as WSChatMessage } from "../lib/chat-ws";
 import {
@@ -910,6 +911,9 @@ function handleWebSocketMessage(message: WSChatMessage): void {
     }
 
     let partnerSummary = userSummaryCache.get(partnerId);
+    const existingConversation =
+      chatState.dmConversations.find((conversation) => conversation.userId === partnerId) ?? null;
+
     if (message.displayName) {
       const summary = {
         displayName: message.displayName,
@@ -917,10 +921,18 @@ function handleWebSocketMessage(message: WSChatMessage): void {
       };
       userSummaryCache.set(partnerId, summary);
       partnerSummary = summary;
+    } else if (!partnerSummary && existingConversation?.displayName) {
+      const summary = {
+        displayName: existingConversation.displayName,
+        avatarUrl: existingConversation.avatarUrl ?? null,
+      };
+      userSummaryCache.set(partnerId, summary);
+      partnerSummary = summary;
     }
     const conversationDisplayName =
       message.displayName ||
       partnerSummary?.displayName ||
+      existingConversation?.displayName ||
       getFallbackDisplayName(partnerId);
 
     upsertConversationPreviewEntry(partnerId, {
@@ -986,24 +998,19 @@ function createAvatar(
     `${size} rounded-full border border-[#00C8FF]/50 bg-[#00C8FF]/10 flex items-center justify-center overflow-hidden`
   );
 
-  if (avatarUrl) {
-    const img = document.createElement('img');
-    img.src = avatarUrl;
-    img.alt = initials;
-    img.className = 'w-full h-full object-cover';
-    img.onerror = () => {
-      img.remove();
-      const fallback = createElement("span", "text-[#00C8FF]");
-      fallback.textContent = initials;
-      avatar.appendChild(fallback);
-    };
-    avatar.appendChild(img);
-    return avatar;
-  }
+  const resolvedAvatar = resolveAvatarUrl(avatarUrl);
 
-  const text = createElement("span", "text-[#00C8FF]");
-  text.textContent = initials;
-  avatar.appendChild(text);
+  const img = document.createElement('img');
+  img.src = resolvedAvatar;
+  img.alt = initials;
+  img.className = 'w-full h-full object-cover';
+  img.onerror = () => {
+    img.remove();
+    const fallback = createElement("span", "text-[#00C8FF]");
+    fallback.textContent = initials;
+    avatar.appendChild(fallback);
+  };
+  avatar.appendChild(img);
   return avatar;
 }
 

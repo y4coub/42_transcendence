@@ -9,7 +9,28 @@ export const userDisplayNameSchema = z
 	.max(32, 'Display name must be at most 32 characters long.')
 	.regex(/^[A-Za-z0-9 _\-]+$/, 'Display name may only contain letters, numbers, spaces, underscores, and hyphens.');
 
-export const userAvatarUrlSchema = z.string().url();
+const dataImagePattern = /^data:image\/(png|jpeg|webp);base64,[a-zA-Z0-9+/=]+$/i;
+
+export const userAvatarUrlSchema = z
+	.string()
+	.refine((value) => {
+		const trimmed = value.trim();
+		if (trimmed.length === 0) {
+			return false;
+		}
+
+		if (trimmed.startsWith('data:image/')) {
+			return dataImagePattern.test(trimmed);
+		}
+
+		try {
+			const parsed = new URL(trimmed);
+			return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+		} catch {
+			return false;
+		}
+	}, 'Avatar must be a valid image URL or data URI.')
+	.transform((value) => value.trim());
 export const userEmailSchema = z.string().email();
 
 export const matchOutcomeSchema = z.enum(['win', 'loss']);

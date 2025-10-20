@@ -1,5 +1,6 @@
 import { createDiv, createElement, createButton, appendChildren } from "../utils/dom";
 import { createIcon } from "../utils/icons";
+import { resolveAvatarUrl } from "../utils/avatar";
 import {
   getPublicProfile,
   getUserStats,
@@ -131,19 +132,16 @@ function renderProfileSummary(
   const avatar = createDiv(
     "h-16 w-16 rounded-full border-2 border-[#00C8FF]/70 bg-[#0b0e19] flex items-center justify-center overflow-hidden text-xl text-[#00C8FF]"
   );
-  if (profile.avatarUrl) {
-    const img = document.createElement("img");
-    img.src = profile.avatarUrl;
-    img.alt = profile.displayName;
-    img.className = "h-full w-full object-cover";
-    img.onerror = () => {
-      img.remove();
-      avatar.textContent = profile.displayName.substring(0, 2).toUpperCase();
-    };
-    avatar.appendChild(img);
-  } else {
+  const resolvedAvatar = resolveAvatarUrl(profile.avatarUrl);
+  const img = document.createElement("img");
+  img.src = resolvedAvatar;
+  img.alt = profile.displayName;
+  img.className = "h-full w-full object-cover";
+  img.onerror = () => {
+    img.remove();
     avatar.textContent = profile.displayName.substring(0, 2).toUpperCase();
-  }
+  };
+  avatar.appendChild(img);
 
   const titleStack = createDiv("space-y-1");
   const name = createElement("h4", "text-xl font-semibold text-[#E0E0E0]");

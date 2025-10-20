@@ -14,8 +14,10 @@ import {
   type UserProfile,
   type UserStats,
   type RecentMatch,
+  type UserProfileUpdate,
 } from "../lib/api-client";
 import { showError, showSuccess, showPrompt } from "../components/Modal";
+import { resolveAvatarUrl } from "../utils/avatar";
 
 let currentProfile: UserProfile | null = null;
 let currentStats: UserStats | null = null;
@@ -27,6 +29,12 @@ let profileUserId: string | null = null;
 
 const opponentNameCache = new Map<string, { name: string; avatarUrl: string | null }>();
 
+let pendingAvatarData: string | null = null;
+let pendingAvatarDirty = false;
+
+const AVATAR_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+const AVATAR_MAX_DIMENSION = 256;
 function updateProfileDisplay(profile: UserProfile): void {
   currentProfile = profile;
   if (viewingOwnProfile) {
@@ -41,10 +49,11 @@ function updateProfileDisplay(profile: UserProfile): void {
     const container = node as HTMLElement;
     container.innerHTML = '';
     const initials = getInitials(displayName);
+    const avatarSrc = resolveAvatarUrl(profile.avatarUrl);
 
-    if (profile.avatarUrl) {
+    if (avatarSrc) {
       const img = document.createElement('img');
-      img.src = profile.avatarUrl;
+      img.src = avatarSrc;
       img.alt = displayName;
       img.className = 'w-full h-full object-cover';
       img.onerror = () => {
@@ -228,6 +237,55 @@ function updateInsightValue(selector: string, value: string): void {
   elements.forEach((el) => {
     el.textContent = value;
   });
+}
+
+async function processAvatarFile(file: File): Promise<string> {
+  if (!AVATAR_ALLOWED_TYPES.includes(file.type)) {
+    throw new Error('Please choose a PNG, JPG, or WebP image.');
+  }
+
+  if (file.size > AVATAR_MAX_BYTES) {
+    throw new Error('Avatar must be smaller than 2 MB.');
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Could not load selected image.'));
+      img.src = objectUrl;
+    });
+
+    const scale = Math.min(
+      AVATAR_MAX_DIMENSION / image.width,
+      AVATAR_MAX_DIMENSION / image.height,
+      1
+    );
+
+    const targetWidth = Math.max(1, Math.round(image.width * scale));
+    const targetHeight = Math.max(1, Math.round(image.height * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Canvas operations are not supported in this browser.');
+    }
+
+    ctx.clearRect(0, 0, targetWidth, targetHeight);
+    ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+    return canvas.toDataURL('image/png', 0.9);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function resetPendingAvatar(): void {
+  pendingAvatarData = null;
+  pendingAvatarDirty = false;
 }
 
 function getInitials(displayName: string): string {
@@ -460,11 +518,13 @@ function createAvatar(
   const avatar = createDiv(
     `${size} rounded-full border border-[#00C8FF]/50 bg-[#00C8FF]/10 flex items-center justify-center overflow-hidden`
   );
+
+  const resolvedAvatar = resolveAvatarUrl(avatarUrl);
   
-  if (avatarUrl) {
+  if (resolvedAvatar) {
     // Display avatar image
     const img = document.createElement("img");
-    img.src = avatarUrl;
+    img.src = resolvedAvatar;
     img.alt = initials;
     img.className = "w-full h-full object-cover";
     img.onerror = () => {
@@ -556,13 +616,8 @@ export function createProfilePage(): HTMLElement {
     "w-full bg-[#00C8FF] text-[#121217] hover:bg-[#00C8FF]/90 px-4 py-2 rounded transition-colors"
   );
 
-  const manageSecurityBtn = createButton(
-    "Manage Security",
-    "w-full border border-[#00C8FF]/40 text-[#00C8FF] hover:border-[#00C8FF] px-4 py-2 rounded transition-colors",
-    () => toggleModal(true, 'security')
-  );
   if (viewingOwnProfile) {
-    appendChildren(actionStack, [editBtn, manageSecurityBtn]);
+    actionStack.appendChild(editBtn);
   } else {
     const note = createElement(
       "p",
@@ -587,14 +642,8 @@ export function createProfilePage(): HTMLElement {
   securityDetail.setAttribute('data-security-detail', 'true');
   securityDetail.textContent = "We'll show your two-factor status once it loads.";
 
-  const securityManageBtn = createButton(
-    "Manage Two-Factor",
-    "w-full bg-[#00C8FF]/10 border border-[#00C8FF]/40 text-[#00C8FF] hover:border-[#00C8FF] px-4 py-2 rounded transition-colors",
-    () => toggleModal(true, 'security')
-  );
-
   if (viewingOwnProfile) {
-    appendChildren(securitySummary, [securityTitle, securityBadge, securityDetail, securityManageBtn]);
+    appendChildren(securitySummary, [securityTitle, securityBadge, securityDetail]);
   } else {
     securityBadge.textContent = 'Private';
     securityBadge.className = 'inline-flex items-center rounded px-3 py-1 text-sm border border-[#2A2E4A]/60 text-[#8D93B5] bg-[#1a1d2d]';
@@ -752,35 +801,114 @@ export function createProfilePage(): HTMLElement {
 
     const profile = currentProfile;
     const userInfo = getUser();
+    const displayNameForInitials = profile?.displayName ?? userInfo?.displayName ?? 'Player';
     const avatarRow = createDiv("flex items-center gap-4");
     const avatarPreview = createDiv(
       "h-20 w-20 rounded-full border-2 border-[#00C8FF] bg-[#00C8FF]/10 flex items-center justify-center overflow-hidden"
     );
 
-    if (profile?.avatarUrl) {
-      const img = document.createElement('img');
-      img.src = profile.avatarUrl;
-      img.alt = profile.displayName;
-      img.className = 'w-full h-full object-cover';
-      img.onerror = () => {
-        img.remove();
-        const fallback = createElement('span', 'text-[#00C8FF] text-2xl');
-        fallback.textContent = profile ? getInitials(profile.displayName) : '--';
-        avatarPreview.appendChild(fallback);
-      };
-      avatarPreview.appendChild(img);
-    } else {
-      const initials = createElement('span', 'text-[#00C8FF] text-2xl');
-      initials.textContent = profile ? getInitials(profile.displayName) : '--';
-      avatarPreview.appendChild(initials);
-    }
+    const effectiveAvatarSrc = pendingAvatarDirty
+      ? pendingAvatarData
+      : resolveAvatarUrl(profile?.avatarUrl ?? null);
 
-    const avatarMeta = createDiv("space-y-1");
+    const applyAvatarPreview = (src: string | null) => {
+      avatarPreview.innerHTML = '';
+      const resolved = resolveAvatarUrl(src);
+      if (resolved) {
+        const img = document.createElement('img');
+        img.src = resolved;
+        img.alt = displayNameForInitials;
+        img.className = 'w-full h-full object-cover';
+        img.onerror = () => {
+          img.remove();
+          const fallback = createElement('span', 'text-[#00C8FF] text-2xl');
+          fallback.textContent = getInitials(displayNameForInitials);
+          avatarPreview.appendChild(fallback);
+        };
+        avatarPreview.appendChild(img);
+      } else {
+        const initials = createElement('span', 'text-[#00C8FF] text-2xl');
+        initials.textContent = getInitials(displayNameForInitials);
+        avatarPreview.appendChild(initials);
+      }
+    };
+    applyAvatarPreview(effectiveAvatarSrc);
+
+    const avatarMeta = createDiv("space-y-2");
     const avatarStatus = createElement("p", "text-sm text-[#E0E0E0]");
     avatarStatus.textContent = profile ? profile.displayName : 'Loading profile...';
     const avatarHint = createElement("p", "text-xs text-[#E0E0E0]/50");
-    avatarHint.textContent = "Custom avatars are coming soon.";
-    appendChildren(avatarMeta, [avatarStatus, avatarHint]);
+    avatarHint.textContent = "Upload a PNG, JPG, or WebP image (max 2 MB). We'll resize it for you.";
+
+    const avatarControls = createDiv("flex flex-wrap gap-2");
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = AVATAR_ALLOWED_TYPES.join(',');
+    fileInput.className = 'hidden';
+
+    const uploadBtn = createButton(
+      "Upload Avatar",
+      "px-3 py-2 text-sm rounded bg-[#00C8FF]/15 text-[#00C8FF] hover:bg-[#00C8FF]/25 transition-colors",
+      () => {
+        if (fileInput.disabled) return;
+        fileInput.value = '';
+        fileInput.click();
+      }
+    );
+    if (!profile) {
+      fileInput.disabled = true;
+      uploadBtn.setAttribute('disabled', 'true');
+    } else {
+      fileInput.disabled = false;
+      uploadBtn.removeAttribute('disabled');
+    }
+
+    const removeBtn = createButton(
+      "Remove Avatar",
+      "px-3 py-2 text-sm rounded border border-[#00C8FF]/30 text-[#E0E0E0]/70 hover:text-[#FF008C] hover:border-[#FF008C]/70 transition-colors",
+      () => {
+        pendingAvatarData = null;
+        pendingAvatarDirty = true;
+        applyAvatarPreview(null);
+        avatarHint.textContent = "Avatar will reset to the default icon once you save.";
+        removeBtn.setAttribute('disabled', 'true');
+      }
+    );
+
+    const refreshRemoveButton = () => {
+      const hasStoredAvatar = Boolean(profile?.avatarUrl);
+      const hasPendingAvatar = pendingAvatarDirty ? pendingAvatarData !== null : hasStoredAvatar;
+      if (hasPendingAvatar) {
+        removeBtn.removeAttribute('disabled');
+      } else {
+        removeBtn.setAttribute('disabled', 'true');
+      }
+    };
+    refreshRemoveButton();
+
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+
+      try {
+        const processed = await processAvatarFile(file);
+        pendingAvatarData = processed;
+        pendingAvatarDirty = true;
+        applyAvatarPreview(processed);
+        avatarHint.textContent = `Ready to upload: ${file.name}. Save changes to apply.`;
+        removeBtn.removeAttribute('disabled');
+      } catch (error) {
+        console.error('Avatar upload failed:', error);
+        const message =
+          error instanceof Error ? error.message : 'Unable to process the selected avatar.';
+        showErrorMessage(message);
+      }
+    });
+
+    avatarControls.appendChild(uploadBtn);
+    avatarControls.appendChild(removeBtn);
+    avatarMeta.appendChild(fileInput);
+    appendChildren(avatarMeta, [avatarStatus, avatarHint, avatarControls]);
 
     appendChildren(avatarRow, [avatarPreview, avatarMeta]);
 
@@ -848,7 +976,12 @@ export function createProfilePage(): HTMLElement {
             throw new Error('Enter a valid email address');
           }
 
-          await updateUserProfile(userId, { displayName, email });
+          const payload: UserProfileUpdate = { displayName, email };
+          if (pendingAvatarDirty) {
+            payload.avatarUrl = pendingAvatarData;
+          }
+
+          await updateUserProfile(userId, payload);
           await profileState.loadProfile(userId);
           setUser({ id: userId, email, displayName });
 
@@ -1181,6 +1314,7 @@ export function createProfilePage(): HTMLElement {
     }
     modalOpen = open;
     if (modalOpen) {
+      resetPendingAvatar();
       modalOverlay.classList.remove("hidden");
       renderGeneral();
       renderSecurity();
@@ -1190,6 +1324,7 @@ export function createProfilePage(): HTMLElement {
       });
     } else {
       modalOverlay.classList.add("hidden");
+      resetPendingAvatar();
     }
   }
 

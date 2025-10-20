@@ -24,6 +24,7 @@ import {
   createElement,
   appendChildren,
 } from "../utils/dom";
+import { resolveAvatarUrl } from "../utils/avatar";
 
 /**
  * Create avatar with image support or initials fallback
@@ -37,28 +38,16 @@ function createAvatar(
   const avatar = createDiv(
     `${size} rounded-full border-2 ${borderColor} bg-[#00C8FF]/10 flex items-center justify-center overflow-hidden`
   );
-  
-  if (avatarUrl) {
-    const img = document.createElement("img");
-    img.src = avatarUrl;
-    img.alt = displayName;
-    img.className = "w-full h-full object-cover";
-    img.onerror = () => {
-      // Fallback to initials if image fails to load
-      img.remove();
-      const initials = displayName
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2);
-      const text = createElement("span", "text-[#00C8FF] font-semibold text-sm");
-      text.textContent = initials;
-      avatar.appendChild(text);
-    };
-    avatar.appendChild(img);
-  } else {
-    // Use initials when no avatar URL
+
+  const resolvedAvatar = resolveAvatarUrl(avatarUrl);
+
+  const img = document.createElement("img");
+  img.src = resolvedAvatar;
+  img.alt = displayName;
+  img.className = "w-full h-full object-cover";
+  img.onerror = () => {
+    // Fallback to initials if image fails to load
+    img.remove();
     const initials = displayName
       .split(" ")
       .map((n) => n[0])
@@ -68,8 +57,9 @@ function createAvatar(
     const text = createElement("span", "text-[#00C8FF] font-semibold text-sm");
     text.textContent = initials;
     avatar.appendChild(text);
-  }
-  
+  };
+  avatar.appendChild(img);
+
   return avatar;
 }
 

@@ -1,4 +1,5 @@
 import { createIcon } from "../utils/icons";
+import { resolveAvatarUrl } from "../utils/avatar";
 
 /**
  * OpponentModal - UI for selecting an opponent from online players
@@ -32,24 +33,13 @@ function createAvatar(
   const container = document.createElement("div");
   container.className = `${size} rounded-full border border-[#00C8FF]/30 bg-[#101425] text-[#E0E0E0] font-semibold flex items-center justify-center overflow-hidden flex-shrink-0`;
 
-  if (avatarUrl) {
-    const img = document.createElement("img");
-    img.src = avatarUrl;
-    img.alt = displayName;
-    img.className = "w-full h-full object-cover";
-    img.onerror = () => {
-      // Fallback to initials if image fails
-      const initials = displayName
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2);
-      container.innerHTML = `<span class="text-sm">${initials}</span>`;
-    };
-    container.appendChild(img);
-  } else {
-    // Use initials
+  const resolved = resolveAvatarUrl(avatarUrl);
+  const img = document.createElement("img");
+  img.src = resolved;
+  img.alt = displayName;
+  img.className = "w-full h-full object-cover";
+  img.onerror = () => {
+    // Fallback to initials if image fails
     const initials = displayName
       .split(" ")
       .map((n) => n[0])
@@ -57,7 +47,8 @@ function createAvatar(
       .toUpperCase()
       .slice(0, 2);
     container.innerHTML = `<span class="text-sm">${initials}</span>`;
-  }
+  };
+  container.appendChild(img);
 
   return container;
 }
