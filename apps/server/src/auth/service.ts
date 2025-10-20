@@ -104,6 +104,14 @@ const normalizeDisplayName = (value: string): string => {
   return sanitized;
 };
 
+const isDataUriAvatar = (value: string | null | undefined): boolean => {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.startsWith('data:image/');
+};
+
 const displayNamesEqual = (a: string, b: string): boolean =>
   normalizeDisplayName(a).toLocaleLowerCase() === normalizeDisplayName(b).toLocaleLowerCase();
 
@@ -385,18 +393,24 @@ export const linkOauthProfile = (
   providerSub: string,
   attributes: { displayName?: string; avatarUrl?: string | null },
 ): void => {
+  const current = getUserById(userId);
   const updates: UpdateUserInput = {
     provider: '42',
     providerSub,
-    avatarUrl: attributes.avatarUrl ?? null,
   };
 
   const nextDisplayName = attributes.displayName ? normalizeDisplayName(attributes.displayName) : '';
   if (nextDisplayName.length > 0) {
-    const current = getUserById(userId);
     if (current && !displayNamesEqual(nextDisplayName, current.displayName)) {
       updates.displayName = ensureUniqueDisplayName(nextDisplayName, userId);
     }
+  }
+
+  if (
+    attributes.avatarUrl !== undefined &&
+    !isDataUriAvatar(current?.avatarUrl ?? null)
+  ) {
+    updates.avatarUrl = attributes.avatarUrl ?? null;
   }
 
   updateUser(userId, updates);
@@ -432,7 +446,11 @@ export const findOrCreateOauthUser = (
     if (desiredDisplayName.length > 0 && !displayNamesEqual(desiredDisplayName, existingBySub.displayName)) {
       updates.displayName = ensureUniqueDisplayName(desiredDisplayName, existingBySub.id);
     }
-    if (profile.avatarUrl !== undefined && profile.avatarUrl !== existingBySub.avatarUrl) {
+    if (
+      profile.avatarUrl !== undefined &&
+      profile.avatarUrl !== existingBySub.avatarUrl &&
+      !isDataUriAvatar(existingBySub.avatarUrl)
+    ) {
       updates.avatarUrl = profile.avatarUrl ?? null;
     }
     if (Object.keys(updates).length > 0) {
@@ -452,7 +470,11 @@ export const findOrCreateOauthUser = (
       updates.displayName = ensureUniqueDisplayName(desiredDisplayName, existingByEmail.id);
     }
 
-    if (profile.avatarUrl !== undefined && profile.avatarUrl !== existingByEmail.avatarUrl) {
+    if (
+      profile.avatarUrl !== undefined &&
+      profile.avatarUrl !== existingByEmail.avatarUrl &&
+      !isDataUriAvatar(existingByEmail.avatarUrl)
+    ) {
       updates.avatarUrl = profile.avatarUrl ?? null;
     }
 

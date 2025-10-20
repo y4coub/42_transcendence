@@ -19,6 +19,23 @@ const API_URL = window.location.hostname === 'localhost'
 export function createLoginPage(): HTMLElement {
   const container = createDiv("relative min-h-screen w-full overflow-hidden bg-[#030714]");
 
+  const backgroundVideo = createElement(
+    "video",
+    "pointer-events-none absolute inset-0 h-full w-full object-cover"
+  );
+  backgroundVideo.muted = true;
+  backgroundVideo.loop = true;
+  backgroundVideo.autoplay = true;
+  backgroundVideo.playsInline = true;
+  backgroundVideo.setAttribute("muted", "");
+  backgroundVideo.setAttribute("autoplay", "");
+  backgroundVideo.setAttribute("loop", "");
+  backgroundVideo.setAttribute("playsinline", "");
+  backgroundVideo.setAttribute("aria-hidden", "true");
+  backgroundVideo.src = "/bg.mp4";
+  backgroundVideo.style.filter = "blur(32px) saturate(130%)";
+  backgroundVideo.style.opacity = "0.65";
+
   const glowA = createDiv("pointer-events-none absolute -top-40 -left-32 h-96 w-96 rounded-full blur-3xl opacity-60");
   glowA.style.background = "radial-gradient(circle at center, rgba(0,200,255,0.35), transparent 60%)";
   const glowB = createDiv("pointer-events-none absolute -bottom-48 right-[-10%] h-[28rem] w-[28rem] rounded-full blur-3xl opacity-60");
@@ -27,7 +44,7 @@ export function createLoginPage(): HTMLElement {
   gridOverlay.style.backgroundImage = "linear-gradient(90deg, rgba(0,200,255,0.08) 1px, transparent 1px), linear-gradient(180deg, rgba(0,200,255,0.08) 1px, transparent 1px)";
   gridOverlay.style.backgroundSize = "80px 80px";
 
-  appendChildren(container, [glowA, glowB, gridOverlay]);
+  appendChildren(container, [backgroundVideo, glowA, glowB, gridOverlay]);
 
   const wrapper = createDiv("relative z-10 flex min-h-screen w-full items-center justify-center px-4 py-16");
   const card = createDiv(
