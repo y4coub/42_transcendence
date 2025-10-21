@@ -8,7 +8,7 @@ import { getDatabase, closeDatabase } from '@infra/db/client';
 import { config } from '@infra/config/env';
 import { logger } from '@infra/observability/logger';
 
-const MIGRATIONS_DIR = path.resolve(process.cwd(), '../../db/migrations');
+const MIGRATIONS_DIR = path.resolve(process.cwd(), 'db/migrations');
 
 const ensureMigrationsTable = (db: Database) => {
   db.prepare(`
