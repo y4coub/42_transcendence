@@ -86,7 +86,7 @@ function createAvatar(
 function createBadge(text: string, className: string): HTMLElement {
   const badge = createElement(
     "span",
-    `px-3 py-1 rounded-full text-xs font-semibold tracking-wide border ${className}`
+    `inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold tracking-wide text-center border ${className}`
   );
   badge.textContent = text;
   return badge;
@@ -255,7 +255,7 @@ export function createGamePage(): HTMLElement {
   const player1Name = createElement("p", "truncate text-lg font-semibold text-[#E0E0E0]");
   player1Name.id = "player1-name";
   player1Name.textContent = "Loading...";
-  const player1Score = createBadge("0", "px-3 py-1 w-full min-w-[3rem] text-center border-[#00C8FF]/40 bg-[#00C8FF]/10 text-[#00C8FF]");
+  const player1Score = createBadge("0", "w-[4rem] border-[#00C8FF]/40 bg-[#00C8FF]/10 text-[#00C8FF]");
   player1Score.id = "player1-score";
   appendChildren(player1Info, [player1Label, player1Name, player1Score]);
   player1.appendChild(player1Info);
@@ -288,7 +288,7 @@ export function createGamePage(): HTMLElement {
   const player2Name = createElement("p", "truncate text-lg font-semibold text-[#E0E0E0]");
   player2Name.id = "player2-name";
   player2Name.textContent = "Waiting for opponent...";
-  const player2Score = createBadge("0", "px-3 py-1 min-w-[3rem] w-full text-center border-[#FF008C]/40 bg-[#FF008C]/10 text-[#FF008C]");
+  const player2Score = createBadge("0", "w-[4rem] border-[#FF008C]/40 bg-[#FF008C]/10 text-[#FF008C]");
   player2Score.id = "player2-score";
   appendChildren(player2Info, [player2Label, player2Name, player2Score]);
 

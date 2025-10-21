@@ -734,7 +734,7 @@ class PlayPage {
 		this.currentPlayerName = 'You';
 
 		applyPlayerNames('Player 1', null, playerTwoName, null, 1);
-		updateScoreDisplay(0, 0);
+		setScoreboardScores(0, 0);
 		this.lastKnownScore = { p1: 0, p2: 0 };
 		updateMatchMeta('status', 'Countdown');
 		updateMatchMeta('mode', isBot ? 'Solo' : 'Local Multiplayer');
@@ -1104,7 +1104,7 @@ class PlayPage {
 		const hitP1 = checkPaddleCollision(true);
 		if (!hitP1 && ballX < 0) {
 			scoreP2++;
-			updateScoreDisplay(scoreP1, scoreP2);
+				setScoreboardScores(scoreP1, scoreP2);
 			this.lastKnownScore = { p1: scoreP1, p2: scoreP2 };
 			if (scoreP2 >= LOCAL_TARGET_SCORE) {
 				ballX = 0.5;
@@ -1127,7 +1127,7 @@ class PlayPage {
 		const hitP2 = checkPaddleCollision(false);
 		if (!hitP2 && ballX > 1) {
 			scoreP1++;
-			updateScoreDisplay(scoreP1, scoreP2);
+				setScoreboardScores(scoreP1, scoreP2);
 			this.lastKnownScore = { p1: scoreP1, p2: scoreP2 };
 			if (scoreP1 >= LOCAL_TARGET_SCORE) {
 				ballX = 0.5;
@@ -1293,7 +1293,7 @@ class PlayPage {
       }
 			setScoreboardTarget('First to Five');
 
-			updateScoreDisplay(match.p1Score ?? 0, match.p2Score ?? 0);
+			setScoreboardScores(match.p1Score ?? 0, match.p2Score ?? 0);
 			this.lastKnownScore = {
 				p1: match.p1Score ?? 0,
 				p2: match.p2Score ?? 0,
@@ -1411,7 +1411,7 @@ class PlayPage {
 	private handleMultiplayerJoined(joined: JoinedMessage): void {
 		updateMatchMeta('status', joined.match.state === 'playing' ? 'Playing' : 'Match Lobby');
 		updateMatchMeta('latency', 'Syncing…');
-		updateScoreDisplay(joined.match.p1Score ?? 0, joined.match.p2Score ?? 0);
+		setScoreboardScores(joined.match.p1Score ?? 0, joined.match.p2Score ?? 0);
 
 		if (joined.match.state === 'playing') {
 			this.showPlaying();
@@ -1433,7 +1433,7 @@ class PlayPage {
 
 		updateMatchMeta('status', 'Playing');
 		updateMatchMeta('latency', 'In Sync');
-		updateScoreDisplay(state.score.p1, state.score.p2);
+		setScoreboardScores(state.score.p1, state.score.p2);
 		this.lastKnownScore = { p1: state.score.p1, p2: state.score.p2 };
 
 		this.renderer?.setState({
@@ -1516,7 +1516,7 @@ private handleMultiplayerGameOver(gameOver: GameOverMessage): void {
 
 		updateMatchMeta('status', 'Completed');
 		updateMatchMeta('latency', '--');
-		updateScoreDisplay(finalScores.p1, finalScores.p2);
+		setScoreboardScores(finalScores.p1, finalScores.p2);
 
 		this.showEnd({
 			title,
@@ -1753,7 +1753,7 @@ private handleMultiplayerGameOver(gameOver: GameOverMessage): void {
 
 	private applyDefaultScoreboard(): void {
 		applyPlayerNames('Player 1', null, 'Player 2', null, 1);
-		updateScoreDisplay(0, 0);
+		setScoreboardScores(0, 0);
 		updateMatchMeta('status', 'Select Mode');
 		updateMatchMeta('mode', 'Menu');
 		updateMatchMeta('latency', '--');
@@ -1775,15 +1775,76 @@ const AVATAR_BORDER_CLASSES = ['border-[#00C8FF]', 'border-[#FF008C]'] as const;
 const AVATAR_INITIALS_CLASSES = ['text-[#00C8FF]', 'text-[#FF008C]'] as const;
 const SCOREBOARD_COLOR_CLASSES = ['text-[#00C8FF]', 'text-[#FF008C]'] as const;
 
-let scoreboardLocalMatchSide: 1 | 2 = 1;
-let currentScoreTargetText = 'First to Five';
+type ScoreboardMatchSide = 1 | 2;
 
+interface ScoreboardPlayerState {
+	name: string;
+	avatar: string | null;
+	userId?: string | null;
+}
+
+const scoreboardState: {
+	localMatchSide: ScoreboardMatchSide;
+	local: ScoreboardPlayerState;
+	opponent: ScoreboardPlayerState;
+	matchScores: { p1: number; p2: number };
+} = {
+	localMatchSide: 1,
+	local: { name: 'Player 1', avatar: null, userId: null },
+	opponent: { name: 'Player 2', avatar: null, userId: null },
+	matchScores: { p1: 0, p2: 0 },
+};
 function setScoreboardTarget(text: string): void {
-	currentScoreTargetText = text;
 	const target = document.getElementById('match-score-target');
 	if (target) {
 		target.textContent = text;
 	}
+}
+
+function renderScoreboardPlayers(): void {
+	updatePlayerInfo(1, scoreboardState.local.name, scoreboardState.local.avatar, scoreboardState.local.userId ?? undefined);
+	updatePlayerInfo(2, scoreboardState.opponent.name, scoreboardState.opponent.avatar, scoreboardState.opponent.userId ?? undefined);
+	setPlayerCardRole(1, 'local');
+	setPlayerCardRole(2, 'opponent');
+}
+
+function renderScoreboardScores(): void {
+	const { p1, p2 } = scoreboardState.matchScores;
+	const localScore = scoreboardState.localMatchSide === 1 ? p1 : p2;
+	const opponentScore = scoreboardState.localMatchSide === 1 ? p2 : p1;
+
+	const player1ScoreEl = document.getElementById('player1-score');
+	const player2ScoreEl = document.getElementById('player2-score');
+	const matchScorePlayerEl = document.getElementById('match-score-player');
+	const matchScoreOpponentEl = document.getElementById('match-score-opponent');
+
+	if (player1ScoreEl) {
+		player1ScoreEl.textContent = String(localScore);
+	}
+	if (player2ScoreEl) {
+		player2ScoreEl.textContent = String(opponentScore);
+	}
+	if (matchScorePlayerEl) {
+		matchScorePlayerEl.textContent = String(localScore);
+	}
+	if (matchScoreOpponentEl) {
+		matchScoreOpponentEl.textContent = String(opponentScore);
+	}
+
+	applyScoreboardColors();
+}
+
+function setScoreboardPlayers(local: ScoreboardPlayerState, opponent: ScoreboardPlayerState, localMatchSide: ScoreboardMatchSide): void {
+	scoreboardState.local = { ...local };
+	scoreboardState.opponent = { ...opponent };
+	scoreboardState.localMatchSide = localMatchSide;
+	renderScoreboardPlayers();
+	renderScoreboardScores();
+}
+
+function setScoreboardScores(p1Score: number, p2Score: number): void {
+	scoreboardState.matchScores = { p1: p1Score, p2: p2Score };
+	renderScoreboardScores();
 }
 
 function setPlayerCardRole(player: 1 | 2, role: PlayerRole): void {
@@ -1791,7 +1852,7 @@ function setPlayerCardRole(player: 1 | 2, role: PlayerRole): void {
   if (label) {
     label.classList.remove(...PLAYER_LABEL_COLOR_CLASSES);
     label.classList.add(role === 'local' ? PLAYER_LABEL_COLOR_CLASSES[0] : PLAYER_LABEL_COLOR_CLASSES[1]);
-    label.textContent = role === 'local' ? 'You' : 'Opponent';
+    label.textContent = role === 'local' ? 'YOU' : 'OPPONENT';
   }
 
   const score = document.getElementById(`player${player}-score`);
@@ -1833,36 +1894,6 @@ function applyScoreboardColors(): void {
   }
 }
 
-function updateScoreDisplay(p1Score: number, p2Score: number): void {
-	const player1ScoreEl = document.getElementById('player1-score');
-	const player2ScoreEl = document.getElementById('player2-score');
-	const matchScorePlayerEl = document.getElementById('match-score-player');
-	const matchScoreOpponentEl = document.getElementById('match-score-opponent');
-	const scoreTargetEl = document.getElementById('match-score-target');
-
-	const localScore = scoreboardLocalMatchSide === 1 ? p1Score : p2Score;
-	const opponentScore = scoreboardLocalMatchSide === 1 ? p2Score : p1Score;
-
-	if (player1ScoreEl) {
-		player1ScoreEl.textContent = String(localScore);
-	}
-	if (player2ScoreEl) {
-		player2ScoreEl.textContent = String(opponentScore);
-	}
-	if (matchScorePlayerEl) {
-		matchScorePlayerEl.textContent = String(localScore);
-	}
-	if (matchScoreOpponentEl) {
-		matchScoreOpponentEl.textContent = String(opponentScore);
-	}
-
-	applyScoreboardColors();
-
-	if (scoreTargetEl) {
-		scoreTargetEl.textContent = currentScoreTargetText;
-	}
-}
-
 function applyPlayerNames(
   p1Name: string,
   p1Avatar: string | null,
@@ -1872,21 +1903,16 @@ function applyPlayerNames(
   p1Id?: string | null,
   p2Id?: string | null,
 ): void {
-  scoreboardLocalMatchSide = localPlayer;
+	const localInfo =
+		localPlayer === 1
+			? { name: p1Name, avatar: p1Avatar, userId: p1Id ?? undefined }
+			: { name: p2Name, avatar: p2Avatar, userId: p2Id ?? undefined };
+	const opponentInfo =
+		localPlayer === 1
+			? { name: p2Name, avatar: p2Avatar, userId: p2Id ?? undefined }
+			: { name: p1Name, avatar: p1Avatar, userId: p1Id ?? undefined };
 
-  const localInfo = localPlayer === 1
-    ? { name: p1Name, avatar: p1Avatar, id: p1Id }
-    : { name: p2Name, avatar: p2Avatar, id: p2Id };
-  const opponentInfo = localPlayer === 1
-    ? { name: p2Name, avatar: p2Avatar, id: p2Id }
-    : { name: p1Name, avatar: p1Avatar, id: p1Id };
-
-  updatePlayerInfo(1, localInfo.name, localInfo.avatar ?? null, localInfo.id ?? undefined);
-  updatePlayerInfo(2, opponentInfo.name, opponentInfo.avatar ?? null, opponentInfo.id ?? undefined);
-
-  setPlayerCardRole(1, 'local');
-  setPlayerCardRole(2, 'opponent');
-  applyScoreboardColors();
+	setScoreboardPlayers(localInfo, opponentInfo, localPlayer);
 }
 
 export const playPage = new PlayPage();
