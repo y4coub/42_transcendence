@@ -29,6 +29,7 @@ export class CanvasGameRenderer {
 	private logicalWidth = 0;
 	private logicalHeight = 0;
 	private placeholderMessage: string | null = 'Waiting for game state...';
+	private countdownOverlay: { label: string; expiresAt: number } | null = null;
 
 	constructor(canvas: HTMLCanvasElement) {
 		this.canvas = canvas;
@@ -120,6 +121,8 @@ export class CanvasGameRenderer {
 		} else {
 			this.drawWaitingMessage(width, height, this.placeholderMessage ?? 'Waiting for game state...');
 		}
+
+		this.drawCountdownOverlay(width, height);
 
 		if (this.options.latency !== undefined) {
 			this.drawLatencyIndicator(this.options.latency, width);
@@ -292,6 +295,21 @@ export class CanvasGameRenderer {
 		this.ctx.restore();
 	}
 
+	showCountdownOverlay(seconds: number): void {
+		const clamped = Number.isFinite(seconds) ? Math.max(0, Math.round(seconds)) : 3;
+		const label = clamped <= 0 ? 'GO' : String(clamped);
+		const duration = clamped <= 0 ? 650 : 1000;
+		const now = performance.now();
+		this.countdownOverlay = {
+			label,
+			expiresAt: now + duration,
+		};
+	}
+
+	clearCountdownOverlay(): void {
+		this.countdownOverlay = null;
+	}
+
 	/**
 	 * Draw FPS counter
 	 */
@@ -307,8 +325,39 @@ export class CanvasGameRenderer {
 		this.ctx.restore();
 	}
 
+	private drawCountdownOverlay(width: number, height: number): void {
+		if (!this.countdownOverlay) {
+			return;
+		}
+
+		const now = performance.now();
+		if (now > this.countdownOverlay.expiresAt) {
+			this.countdownOverlay = null;
+			return;
+		}
+
+		const label = this.countdownOverlay.label;
+		const remainingRatio = Math.max(0, this.countdownOverlay.expiresAt - now) / 1000;
+		const scale = label === 'GO' ? 1 + remainingRatio * 0.1 : 1 + (1 - Math.min(1, remainingRatio)) * 0.08;
+		const fontSize = Math.max(48, Math.min(width, height) * 0.22);
+
+		this.ctx.save();
+		this.ctx.fillStyle = 'rgba(7, 9, 16, 0.45)';
+		this.ctx.fillRect(0, 0, width, height);
+
+		this.ctx.translate(width / 2, height / 2);
+		this.ctx.scale(scale, scale);
+		this.ctx.fillStyle = '#00C8FF';
+		this.ctx.font = `700 ${fontSize}px "JetBrains Mono", monospace`;
+		this.ctx.textAlign = 'center';
+		this.ctx.textBaseline = 'middle';
+		this.ctx.fillText(label, 0, 0);
+		this.ctx.restore();
+	}
+
 	showPlaceholder(message: string): void {
 		this.placeholderMessage = message;
+		this.countdownOverlay = null;
 		const { width, height } = this.getCanvasSize();
 		if (width === 0 || height === 0) {
 			requestAnimationFrame(() => this.showPlaceholder(message));
@@ -318,4 +367,3 @@ export class CanvasGameRenderer {
 		this.drawWaitingMessage(width, height, message);
 	}
 }
-

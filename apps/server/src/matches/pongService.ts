@@ -34,6 +34,8 @@ interface ActiveGame {
 	countdownValue: number;
 	pausedBy: string | null;
 	cleanupTimer: ReturnType<typeof setTimeout> | null;
+	countdownTimer: ReturnType<typeof setInterval> | null;
+	lastScore: { p1: number; p2: number };
 }
 
 const GAME_TICK_RATE = 60;
@@ -65,6 +67,8 @@ export class PongGameService {
 				countdownValue: 3,
 				pausedBy: null,
 				cleanupTimer: null,
+				countdownTimer: null,
+				lastScore: { p1: 0, p2: 0 },
 			};
 			
 			this.games.set(matchId, game);
@@ -166,10 +170,12 @@ export class PongGameService {
 	}
 
 	private broadcastCountdown(matchId: string, seconds: number): void {
-		this.logger.info({ matchId, seconds }, 'Broadcasting countdown tick');
+		const clamped = Math.max(0, Math.min(3, Math.round(seconds)));
+		this.logger.info({ matchId, seconds: clamped }, 'Broadcasting countdown tick');
 		this.broadcast(matchId, {
 			type: 'countdown',
-			seconds,
+			matchId,
+			seconds: clamped,
 		});
 	}
 
@@ -310,10 +316,18 @@ export class PongGameService {
 		this.broadcastReadyState(matchId);
 		this.broadcastCountdown(matchId, game.countdownValue);
 
+		if (game.countdownTimer) {
+			clearInterval(game.countdownTimer);
+			game.countdownTimer = null;
+		}
+
 		// Broadcast countdown ticks
-		const countdownInterval = setInterval(() => {
+		game.countdownTimer = setInterval(() => {
 			if (!game || game.state !== 'countdown') {
-				clearInterval(countdownInterval);
+				if (game?.countdownTimer) {
+					clearInterval(game.countdownTimer);
+					game.countdownTimer = null;
+				}
 				return;
 			}
 
@@ -321,12 +335,72 @@ export class PongGameService {
 
 			if (game.countdownValue <= 0) {
 				this.broadcastCountdown(matchId, Math.max(game.countdownValue, 0));
-				clearInterval(countdownInterval);
+				if (game.countdownTimer) {
+					clearInterval(game.countdownTimer);
+					game.countdownTimer = null;
+				}
 				this.startGame(matchId);
 				return;
 			}
 
 			this.broadcastCountdown(matchId, game.countdownValue);
+		}, 1000);
+	}
+
+	private startPointCountdown(matchId: string): void {
+		const game = this.games.get(matchId);
+		if (!game) {
+			return;
+		}
+
+		this.logger.info({ matchId, score: game.lastScore }, 'Starting post-score countdown');
+
+		if (game.tickInterval) {
+			clearInterval(game.tickInterval);
+			game.tickInterval = null;
+		}
+
+		if (game.countdownTimer) {
+			clearInterval(game.countdownTimer);
+			game.countdownTimer = null;
+		}
+
+		game.state = 'countdown';
+		game.countdownValue = 3;
+		game.engine.syncClock();
+		const currentState = game.engine.getState();
+		game.lastScore = { ...currentState.score };
+
+		matchRepo.updateMatchState({
+			matchId,
+			state: 'countdown',
+		});
+
+		this.broadcastCountdown(matchId, game.countdownValue);
+
+		game.countdownTimer = setInterval(() => {
+			const currentGame = this.games.get(matchId);
+			if (!currentGame || currentGame.state !== 'countdown') {
+				if (currentGame?.countdownTimer) {
+					clearInterval(currentGame.countdownTimer);
+					currentGame.countdownTimer = null;
+				}
+				return;
+			}
+
+			currentGame.countdownValue -= 1;
+
+			if (currentGame.countdownValue <= 0) {
+				this.broadcastCountdown(matchId, Math.max(currentGame.countdownValue, 0));
+				if (currentGame.countdownTimer) {
+					clearInterval(currentGame.countdownTimer);
+					currentGame.countdownTimer = null;
+				}
+				this.startGame(matchId);
+				return;
+			}
+
+			this.broadcastCountdown(matchId, currentGame.countdownValue);
 		}, 1000);
 	}
 
@@ -338,6 +412,15 @@ export class PongGameService {
 		if (!game) {
 			return;
 		}
+
+		if (game.countdownTimer) {
+			clearInterval(game.countdownTimer);
+			game.countdownTimer = null;
+		}
+
+		game.engine.syncClock();
+		const currentState = game.engine.getState();
+		game.lastScore = { ...currentState.score };
 
 		game.state = 'playing';
 
@@ -371,6 +454,10 @@ export class PongGameService {
 
 		// Broadcast current state to all players
 		const state = game.engine.getState();
+		const previousScore = game.lastScore;
+		const scoreChanged = state.score.p1 !== previousScore.p1 || state.score.p2 !== previousScore.p2;
+		game.lastScore = { ...state.score };
+
 		this.broadcast(matchId, {
 			type: 'state',
 			matchId,
@@ -384,6 +471,12 @@ export class PongGameService {
 		// Check if game is over
 		if (!continues || game.engine.isGameOver()) {
 			this.stopGame(matchId, 'completed');
+			return;
+		}
+
+		if (scoreChanged) {
+			this.startPointCountdown(matchId);
+			return;
 		}
 	}
 
@@ -413,6 +506,16 @@ export class PongGameService {
 		if (game.tickInterval) {
 			clearInterval(game.tickInterval);
 			game.tickInterval = null;
+		}
+
+		if (game.countdownTimer) {
+			clearInterval(game.countdownTimer);
+			game.countdownTimer = null;
+		}
+
+		if (game.countdownTimer) {
+			clearInterval(game.countdownTimer);
+			game.countdownTimer = null;
 		}
 
 		// Update game state
@@ -466,43 +569,46 @@ export class PongGameService {
 		// Start countdown before resuming (T024)
 		game.state = 'countdown';
 		game.countdownValue = 3;
+		game.engine.syncClock();
 
 		matchRepo.updateMatchState({ matchId, state: 'countdown' });
 
-		// Broadcast countdown messages
-		const countdownInterval = setInterval(() => {
-			if (!game || game.state !== 'countdown') {
-				clearInterval(countdownInterval);
+		if (game.countdownTimer) {
+			clearInterval(game.countdownTimer);
+			game.countdownTimer = null;
+		}
+
+		this.broadcastCountdown(matchId, game.countdownValue);
+
+		game.countdownTimer = setInterval(() => {
+			const currentGame = this.games.get(matchId);
+			if (!currentGame || currentGame.state !== 'countdown') {
+				if (currentGame?.countdownTimer) {
+					clearInterval(currentGame.countdownTimer);
+					currentGame.countdownTimer = null;
+				}
 				return;
 			}
 
-			this.broadcast(matchId, {
-				type: 'countdown',
-				seconds: game.countdownValue,
-			});
+			currentGame.countdownValue -= 1;
 
-			game.countdownValue--;
-
-			if (game.countdownValue < 0) {
-				clearInterval(countdownInterval);
-				
-				// Resume the game (transition to playing)
-				game.state = 'playing';
-				matchRepo.updateMatchState({ matchId, state: 'playing' });
-
+			if (currentGame.countdownValue <= 0) {
+				this.broadcastCountdown(matchId, Math.max(currentGame.countdownValue, 0));
+				if (currentGame.countdownTimer) {
+					clearInterval(currentGame.countdownTimer);
+					currentGame.countdownTimer = null;
+				}
 				this.broadcast(matchId, {
 					type: 'resume',
 					matchId,
 					at: Date.now(),
 				});
-
-				// Restart game loop
-				game.tickInterval = setInterval(() => {
-					this.gameTick(matchId);
-				}, GAME_TICK_INTERVAL_MS);
-
+				this.startGame(matchId);
 				this.logger.info({ matchId }, 'Game resumed');
+				return;
 			}
+
+			this.broadcastCountdown(matchId, currentGame.countdownValue);
 		}, 1000);
 
 		return true;
@@ -592,6 +698,10 @@ export class PongGameService {
 		if (game.cleanupTimer) {
 			clearTimeout(game.cleanupTimer);
 			game.cleanupTimer = null;
+		}
+		if (game.countdownTimer) {
+			clearInterval(game.countdownTimer);
+			game.countdownTimer = null;
 		}
 		this.games.delete(matchId);
 		this.logger.info({ matchId }, 'Game instance destroyed');

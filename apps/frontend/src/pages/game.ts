@@ -236,7 +236,7 @@ export function createGamePage(): HTMLElement {
   const player1 = createDiv("flex min-w-0 items-center gap-4");
   player1.id = "player1-info";
 
-  const player1Avatar = createDiv("relative");
+  const player1Avatar = createDiv("relative flex-shrink-0");
   player1Avatar.id = "player1-avatar";
   player1Avatar.setAttribute("data-player-avatar", "1");
   const player1AvatarInner = createAvatar("Loading...", null, "h-14 w-14", "border-[#00C8FF]");
@@ -292,7 +292,7 @@ export function createGamePage(): HTMLElement {
   player2Score.id = "player2-score";
   appendChildren(player2Info, [player2Label, player2Name, player2Score]);
 
-  const player2Avatar = createDiv("relative");
+  const player2Avatar = createDiv("relative flex-shrink-0");
   player2Avatar.id = "player2-avatar";
   player2Avatar.setAttribute("data-player-avatar", "2");
   const player2AvatarInner = createAvatar("...", null, "h-14 w-14", "border-[#FF008C]");

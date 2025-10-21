@@ -37,7 +37,7 @@ export function createProfileAvatarButton({
 	const button = createButton(
 		'',
 		[
-			'inline-flex items-center justify-center rounded-full border bg-[#050814] text-sm font-semibold uppercase tracking-[0.28em] text-[#00C8FF] transition-colors hover:border-[#00C8FF]/60 focus:outline-none focus:ring-2 focus:ring-[#00C8FF]/60',
+			'inline-flex items-center justify-center rounded-full border bg-[#050814] text-sm font-semibold uppercase tracking-[0.28em] text-[#00C8FF] transition-colors hover:border-[#00C8FF]/60 focus:outline-none focus:ring-2 focus:ring-[#00C8FF]/60 aspect-square',
 			sizeClass,
 			borderClass,
 			extraClassName,

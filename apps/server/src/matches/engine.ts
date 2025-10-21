@@ -92,6 +92,14 @@ export class PongEngine {
 	}
 
 	/**
+	 * Resynchronize tick clock (used after pauses/countdowns)
+	 */
+	syncClock(): void {
+		this.lastTickTime = Date.now();
+		this.state.timestamp = this.lastTickTime;
+	}
+
+	/**
 	 * Set player input direction
 	 */
 	setPlayerInput(playerId: string, matchP1Id: string, matchP2Id: string, input: PlayerInput): void {

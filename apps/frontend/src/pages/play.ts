@@ -381,6 +381,7 @@ class PlayPage {
 		}
 
 		this.countdownActive = false;
+		this.renderer?.clearCountdownOverlay();
 	}
 
 	private showCountdown(seconds: number, onComplete: () => void): void {
@@ -412,6 +413,7 @@ class PlayPage {
 
 			if (remaining <= 0) {
 				numberEl.textContent = 'GO';
+				this.renderer?.showCountdownOverlay(0);
 				const hideTimer = setTimeout(() => {
 					if (!this.countdownActive) {
 						return;
@@ -428,6 +430,7 @@ class PlayPage {
 
 			numberEl.textContent = String(remaining);
 			numberEl.style.transform = 'scale(1.1)';
+			this.renderer?.showCountdownOverlay(remaining);
 			const settleTimer = setTimeout(() => {
 				numberEl.style.transform = 'scale(1)';
 			}, 150);
@@ -832,6 +835,46 @@ class PlayPage {
 			ballVY = ballSpeed * Math.sin(angle);
 		};
 
+		const scheduleServeCountdown = (direction: 1 | -1) => {
+			this.clearCountdownTimers();
+			paused = true;
+			updateMatchMeta('status', 'Countdown');
+			ballX = 0.5;
+			ballY = 0.5;
+			ballVX = 0;
+			ballVY = 0;
+			this.renderer?.setState({
+				ball: { x: ballX, y: ballY },
+				p1: { y: p1Y },
+				p2: { y: p2Y },
+				score: { p1: scoreP1, p2: scoreP2 },
+			});
+
+			const sequence = [3, 2, 1, 0] as const;
+			sequence.forEach((value, index) => {
+				const handle = window.setTimeout(() => {
+					if (finished) {
+						return;
+					}
+					this.renderer?.showCountdownOverlay(value);
+					if (value === 0) {
+						resetBall(direction);
+						lastTimestamp = null;
+						paused = this.localPaused;
+						updateMatchMeta('status', this.mode === 'bot' ? 'Practice' : 'Local Versus');
+					}
+				}, index * 1000);
+				this.countdownTimers.push(handle);
+			});
+
+			const resumeHandle = window.setTimeout(() => {
+				if (!finished) {
+					paused = this.localPaused;
+				}
+			}, sequence.length * 1000);
+			this.countdownTimers.push(resumeHandle);
+		};
+
 		const normalizeBounce = (y: number): number => {
 			let adjusted = y;
 			while (adjusted < 0 || adjusted > 1) {
@@ -1058,21 +1101,51 @@ class PlayPage {
 				return true;
 			};
 
-			const hitP1 = checkPaddleCollision(true);
-			if (!hitP1 && ballX < 0) {
-				scoreP2++;
-				updateScoreDisplay(scoreP1, scoreP2);
-				this.lastKnownScore = { p1: scoreP1, p2: scoreP2 };
-				resetBall(1);
+		const hitP1 = checkPaddleCollision(true);
+		if (!hitP1 && ballX < 0) {
+			scoreP2++;
+			updateScoreDisplay(scoreP1, scoreP2);
+			this.lastKnownScore = { p1: scoreP1, p2: scoreP2 };
+			if (scoreP2 >= LOCAL_TARGET_SCORE) {
+				ballX = 0.5;
+				ballY = 0.5;
+				ballVX = 0;
+				ballVY = 0;
+				this.renderer?.setState({
+					ball: { x: ballX, y: ballY },
+					p1: { y: p1Y },
+					p2: { y: p2Y },
+					score: { p1: scoreP1, p2: scoreP2 },
+				});
+				finished = true;
+				this.finishLocalGame(scoreP1, scoreP2, mode);
+				return;
 			}
+			scheduleServeCountdown(1);
+		}
 
-			const hitP2 = checkPaddleCollision(false);
-			if (!hitP2 && ballX > 1) {
-				scoreP1++;
-				updateScoreDisplay(scoreP1, scoreP2);
-				this.lastKnownScore = { p1: scoreP1, p2: scoreP2 };
-				resetBall(-1);
+		const hitP2 = checkPaddleCollision(false);
+		if (!hitP2 && ballX > 1) {
+			scoreP1++;
+			updateScoreDisplay(scoreP1, scoreP2);
+			this.lastKnownScore = { p1: scoreP1, p2: scoreP2 };
+			if (scoreP1 >= LOCAL_TARGET_SCORE) {
+				ballX = 0.5;
+				ballY = 0.5;
+				ballVX = 0;
+				ballVY = 0;
+				this.renderer?.setState({
+					ball: { x: ballX, y: ballY },
+					p1: { y: p1Y },
+					p2: { y: p2Y },
+					score: { p1: scoreP1, p2: scoreP2 },
+				});
+				finished = true;
+				this.finishLocalGame(scoreP1, scoreP2, mode);
+				return;
 			}
+			scheduleServeCountdown(-1);
+		}
 
 			this.renderer?.setState({
 				ball: { x: ballX, y: ballY },
@@ -1081,10 +1154,10 @@ class PlayPage {
 				score: { p1: scoreP1, p2: scoreP2 },
 			});
 
-			if (scoreP1 >= LOCAL_TARGET_SCORE || scoreP2 >= LOCAL_TARGET_SCORE) {
-				finished = true;
-				this.finishLocalGame(scoreP1, scoreP2, mode);
-			}
+		if (scoreP1 >= LOCAL_TARGET_SCORE || scoreP2 >= LOCAL_TARGET_SCORE) {
+			finished = true;
+			this.finishLocalGame(scoreP1, scoreP2, mode);
+		}
 		};
 
 		const loop = (timestamp: number) => {
@@ -1133,6 +1206,7 @@ class PlayPage {
 	}
 
 	private finishLocalGame(scoreP1: number, scoreP2: number, mode: 'bot' | 'local'): void {
+		this.clearCountdownTimers();
 		this.localRuntime?.stop();
 		this.localRuntime = null;
 
@@ -1395,6 +1469,7 @@ class PlayPage {
 	private handleCountdown(countdown: CountdownMessage): void {
 		updateMatchMeta('status', 'Countdown');
 		this.renderServerCountdown(Math.max(0, Math.round(countdown.seconds)));
+		this.renderer?.showCountdownOverlay(Math.max(0, Math.round(countdown.seconds)));
 	}
 
 	private handlePause(paused: PausedMessage): void {
@@ -1700,7 +1775,7 @@ const AVATAR_BORDER_CLASSES = ['border-[#00C8FF]', 'border-[#FF008C]'] as const;
 const AVATAR_INITIALS_CLASSES = ['text-[#00C8FF]', 'text-[#FF008C]'] as const;
 const SCOREBOARD_COLOR_CLASSES = ['text-[#00C8FF]', 'text-[#FF008C]'] as const;
 
-let scoreboardLocalIsPlayer1 = true;
+let scoreboardLocalMatchSide: 1 | 2 = 1;
 let currentScoreTargetText = 'First to Five';
 
 function setScoreboardTarget(text: string): void {
@@ -1716,6 +1791,7 @@ function setPlayerCardRole(player: 1 | 2, role: PlayerRole): void {
   if (label) {
     label.classList.remove(...PLAYER_LABEL_COLOR_CLASSES);
     label.classList.add(role === 'local' ? PLAYER_LABEL_COLOR_CLASSES[0] : PLAYER_LABEL_COLOR_CLASSES[1]);
+    label.textContent = role === 'local' ? 'You' : 'Opponent';
   }
 
   const score = document.getElementById(`player${player}-score`);
@@ -1743,22 +1819,17 @@ function setPlayerCardRole(player: 1 | 2, role: PlayerRole): void {
   }
 }
 
-function setScoreboardOrientation(localIsPlayerOne: boolean): void {
-  scoreboardLocalIsPlayer1 = localIsPlayerOne;
-  applyScoreboardColors();
-}
-
 function applyScoreboardColors(): void {
   const left = document.getElementById('match-score-player');
   const right = document.getElementById('match-score-opponent');
 
   if (left) {
     left.classList.remove(...SCOREBOARD_COLOR_CLASSES);
-    left.classList.add(scoreboardLocalIsPlayer1 ? SCOREBOARD_COLOR_CLASSES[0] : SCOREBOARD_COLOR_CLASSES[1]);
+    left.classList.add(SCOREBOARD_COLOR_CLASSES[0]);
   }
   if (right) {
     right.classList.remove(...SCOREBOARD_COLOR_CLASSES);
-    right.classList.add(scoreboardLocalIsPlayer1 ? SCOREBOARD_COLOR_CLASSES[1] : SCOREBOARD_COLOR_CLASSES[0]);
+    right.classList.add(SCOREBOARD_COLOR_CLASSES[1]);
   }
 }
 
@@ -1769,17 +1840,20 @@ function updateScoreDisplay(p1Score: number, p2Score: number): void {
 	const matchScoreOpponentEl = document.getElementById('match-score-opponent');
 	const scoreTargetEl = document.getElementById('match-score-target');
 
+	const localScore = scoreboardLocalMatchSide === 1 ? p1Score : p2Score;
+	const opponentScore = scoreboardLocalMatchSide === 1 ? p2Score : p1Score;
+
 	if (player1ScoreEl) {
-		player1ScoreEl.textContent = String(p1Score);
+		player1ScoreEl.textContent = String(localScore);
 	}
 	if (player2ScoreEl) {
-		player2ScoreEl.textContent = String(p2Score);
+		player2ScoreEl.textContent = String(opponentScore);
 	}
 	if (matchScorePlayerEl) {
-		matchScorePlayerEl.textContent = String(p1Score);
+		matchScorePlayerEl.textContent = String(localScore);
 	}
 	if (matchScoreOpponentEl) {
-		matchScoreOpponentEl.textContent = String(p2Score);
+		matchScoreOpponentEl.textContent = String(opponentScore);
 	}
 
 	applyScoreboardColors();
@@ -1798,11 +1872,21 @@ function applyPlayerNames(
   p1Id?: string | null,
   p2Id?: string | null,
 ): void {
-  updatePlayerInfo(1, p1Name, p1Avatar, p1Id ?? undefined);
-  updatePlayerInfo(2, p2Name, p2Avatar, p2Id ?? undefined);
-  setPlayerCardRole(1, localPlayer === 1 ? 'local' : 'opponent');
-  setPlayerCardRole(2, localPlayer === 2 ? 'local' : 'opponent');
-  setScoreboardOrientation(localPlayer === 1);
+  scoreboardLocalMatchSide = localPlayer;
+
+  const localInfo = localPlayer === 1
+    ? { name: p1Name, avatar: p1Avatar, id: p1Id }
+    : { name: p2Name, avatar: p2Avatar, id: p2Id };
+  const opponentInfo = localPlayer === 1
+    ? { name: p2Name, avatar: p2Avatar, id: p2Id }
+    : { name: p1Name, avatar: p1Avatar, id: p1Id };
+
+  updatePlayerInfo(1, localInfo.name, localInfo.avatar ?? null, localInfo.id ?? undefined);
+  updatePlayerInfo(2, opponentInfo.name, opponentInfo.avatar ?? null, opponentInfo.id ?? undefined);
+
+  setPlayerCardRole(1, 'local');
+  setPlayerCardRole(2, 'opponent');
+  applyScoreboardColors();
 }
 
 export const playPage = new PlayPage();

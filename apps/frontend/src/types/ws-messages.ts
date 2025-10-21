@@ -209,7 +209,7 @@ export interface StateMessage {
 export interface CountdownMessage {
   type: 'countdown';
   matchId: string;
-  seconds: number;       // Remaining countdown (3, 2, 1)
+  seconds: number;       // Remaining countdown (3, 2, 1, 0 -> GO)
 }
 
 export interface ReadyStateMessage {

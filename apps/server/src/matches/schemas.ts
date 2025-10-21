@@ -170,7 +170,7 @@ export type StateMessage = z.infer<typeof stateMessageSchema>;
 export const countdownMessageSchema = z.object({
 	type: z.literal('countdown'),
 	matchId: z.string().uuid(),
-	seconds: z.number().int().min(1).max(3),
+	seconds: z.number().int().min(0).max(3),
 });
 
 export type CountdownMessage = z.infer<typeof countdownMessageSchema>;
