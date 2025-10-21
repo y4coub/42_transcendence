@@ -83,7 +83,7 @@ export function createLoginPage(): HTMLElement {
     const subtitle = createElement("p", "text-sm text-[#E0E0E0]/60");
     subtitle.textContent = mode === "login"
       ? "Access the arena, manage your profile, and challenge friends."
-      : "Join the ft_transcendence community and start competing.";
+      : "Join the DEN DEN community and start competing.";
     const tabs = createDiv("inline-flex rounded-full border border-[#00C8FF]/20 bg-[#0d1529]/70 p-1");
     const loginTab = createButton(
       "Login",

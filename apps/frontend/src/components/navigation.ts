@@ -81,7 +81,7 @@ export function createNavigation(): HTMLElement {
   logoMark.appendChild(createIcon('gamepad', 'h-5 w-5 text-[#00C8FF]'));
   const logoText = document.createElement('span');
   logoText.className = 'text-sm font-semibold uppercase tracking-[0.4em] text-[#E0E0E0]/90';
-  logoText.textContent = 'ft_transcendence';
+  logoText.textContent = 'DEN DEN';
   logo.addEventListener('click', () => {
     void navigate('/');
     closeMobileMenu?.();
