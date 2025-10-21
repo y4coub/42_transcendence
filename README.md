@@ -2,8 +2,6 @@
 
 Full-stack implementation of the ft_transcendance project. The repository hosts a Fastify + TypeScript backend, a Vite-powered TypeScript frontend, and forward-only SQLite migrations.
 
-> **Status**: actively developed – expect APIs and UI contracts to change while the core game, chat, and authentication flows evolve.
-
 ---
 
 ## Table of Contents
