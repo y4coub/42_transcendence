@@ -1,59 +1,172 @@
-# ft_transcendence Backend
+# ft_transcendance
 
-Spec-driven Fastify + TypeScript backend scaffolded via Spec-Kit. The repository follows the constitution’s modular layout and documentation-first workflow.
+Full-stack implementation of the ft_transcendance project. The repository hosts a Fastify + TypeScript backend, a Vite-powered TypeScript frontend, and forward-only SQLite migrations.
 
-## Project Layout
+> **Status**: actively developed – expect APIs and UI contracts to change while the core game, chat, and authentication flows evolve.
+
+---
+
+## Table of Contents
+
+1. [Project Structure](#project-structure)
+2. [Technology Stack](#technology-stack)
+3. [Prerequisites](#prerequisites)
+4. [Environment Configuration](#environment-configuration)
+5. [Local Development](#local-development)
+6. [Available Scripts](#available-scripts)
+7. [Database & Migrations](#database--migrations)
+8. [Troubleshooting](#troubleshooting)
+9. [License](#license)
+
+---
+
+## Project Structure
 
 ```
-apps/
-  api/                # Fastify service (source in src/)
-  web/                # Frontend placeholder (not covered here)
-db/migrations/        # SQLite forward-only migrations
-docker/               # Dockerfiles and compose stack (proxy, api, sqlite)
-docs/manual-validation/ # Manual validation guides per story
-specs/                # Specification, plan, tasks, research artifacts
+ft_transcendance/
+├─ apps/
+│  ├─ server/                 # Fastify API (TypeScript, better-sqlite3)
+│  └─ frontend/               # Vite + TS SPA (stateful custom components)
+├─ db/
+│  └─ migrations/             # Forward-only SQL migration scripts
+├─ README.md
+└─ ...
 ```
 
-## Getting Started
+Backend source lives under `apps/server/src`. Frontend source is under `apps/frontend/src`.
 
-1. Install dependencies from the repository root:
-	```sh
-	cd apps/api
-	npm install
-	```
-2. Copy environment variables and adjust secrets:
-	```sh
-	cp ../../.env.example ../../.env
-	```
-3. Launch the development server with live reload:
-	```sh
-	npm run dev
-	```
+---
 
-## Core Commands (apps/api)
+## Technology Stack
 
-| Command | Purpose |
-|---------|---------|
-| `npm run dev` | Start Fastify in watch mode via `ts` |
-| `npm run build` | Compile TypeScript to `dist/` |
-| `npm run start` | Run the compiled server from `dist/` |
-| `npm run migrate:up` | Execute forward-only SQLite migrations |
-| `npm run lint` | Lint the source tree with ESLint |
-| `npm run format` | Check code style with Prettier |
+- **Backend**: Fastify, TypeScript, Zod, better-sqlite3, Argon2, Fastify WebSocket
+- **Frontend**: Vite, TypeScript, TailwindCSS
+- **Auth**: JWT (access & refresh tokens), optional OAuth 42 integration, TOTP-based 2FA
+- **Database**: SQLite (embedded) managed with forward-only migrations
 
-## Manual Validation
+---
 
-Automated tests are forbidden by constitution. Refer to `docs/manual-validation/` for the manual smoke guides tied to each user story. Update those documents when behavior or acceptance criteria change.
+## Prerequisites
 
-## Release Checklist
+| Tool              | Version / Notes                                      |
+|-------------------|------------------------------------------------------|
+| Node.js           | >= 20 (LTS recommended). v22 works after rebuilding native deps. |
+| npm               | Ships with Node (npm ≥ 10 recommended).              |
+| SQLite utilities  | Optional; useful for local inspection of the DB file.|
+| OpenSSL           | Required to generate secrets referenced in `.env`.   |
 
-1. Apply pending migrations against the target database (`npm run migrate:up` locally or `docker compose exec api npm run migrate:up`).
-2. Start the HTTPS stack using `docker compose -f docker/compose.yml up --build` and verify `http://localhost:3000/healthz`.
-3. Execute the full smoke checklist (`docs/manual-validation/full-run.md`).
-4. Capture results and known issues in `docs/releases/001-ft-backend-core.md` before tagging a release.
+If you switch Node versions (e.g., with `nvm`), reinstall dependencies to rebuild native modules such as `better-sqlite3`.
 
-## Additional References
+---
 
-- `specs/001-specify-scripts-bash/spec.md` — feature requirements and user stories
-- `specs/001-specify-scripts-bash/plan.md` — architectural plan and route matrix
-- `specs/001-specify-scripts-bash/tasks.md` — actionable task list by phase
+## Environment Configuration
+
+Backend configuration lives in `apps/server/.env`. A fully annotated template is provided:
+
+```bash
+cp apps/server/.env.example apps/server/.env
+```
+
+Important sections to review:
+
+- **Application**: `NODE_ENV`, `API_HOST`, `API_PORT`, `API_LOG_LEVEL`, `TRUST_PROXY`
+- **Database**: `DATABASE_URL` (defaults to `file:./db/data/app.db`)
+- **JWT Secrets**: `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, TTLs
+- **Two-Factor Auth**: encryption key, recovery code settings, trusted device secrets
+- **OAuth 42**: Client ID/secret and redirect URI used by the frontend
+- **CORS / Rate Limiting**: adjust allowed origins or IP allowlist
+
+Use the commands written in the template comments (`openssl rand ...`) to generate production-ready secrets.
+
+---
+
+## Local Development
+
+### 1. Backend (Fastify API)
+
+```bash
+cd apps/server
+npm install        # installs dependencies & compiles native modules
+cp .env.example .env
+npm run migrate:up # create/update the SQLite schema
+npm run dev        # start Fastify with hot reload (default port: 3000)
+```
+
+The API exposes a `/healthz` endpoint for quick status checks. Update `.env` before first launch to point to the desired database location and to configure OAuth/2FA secrets.
+
+### 2. Frontend (Vite SPA)
+
+```bash
+cd apps/frontend
+npm install
+npm run dev        # Vite dev server (default port: 5173)
+```
+
+The SPA expects the backend to run on `http://localhost:3000` and to use the same secrets documented in the API `.env` file (notably the OAuth 42 redirect URI).
+
+---
+
+## Available Scripts
+
+### Backend (`apps/server`)
+
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start Fastify in watch mode using `tsx` |
+| `npm run build` | Type-check with `tsc` and bundle via `tsup` into `dist/` |
+| `npm run start` | Run the compiled build (`dist/app.js`) |
+| `npm run migrate:up` | Execute all forward-only SQLite migrations |
+| `npm run twofa:maintenance` | Maintenance helper for expiring 2FA artifacts |
+| `npm run lint` | Run ESLint against the TypeScript source |
+| `npm run format` | Check formatting with Prettier |
+| `npm run dev:detached` / `npm run dev:stop` | Launch/stop the dev server in the background |
+| `npm run test:smoke` | Manual smoke entry point (script must exist in `tests/`) |
+
+### Frontend (`apps/frontend`)
+
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start Vite dev server with hot module reloading |
+| `npm run build` | Type-check and create a production build |
+| `npm run preview` | Preview the production build locally |
+
+---
+
+## Database & Migrations
+
+- Migrations live under `db/migrations/` and are applied in filename order.
+- Run `npm run migrate:up` from `apps/server` whenever new migrations land.
+- The default SQLite database file is relative to the API project (`file:./db/data/app.db`). Update `DATABASE_URL` if you need an alternate location or storage engine.
+- For manual inspection, open the database file with `sqlite3 db/data/app.db`.
+
+---
+
+## Troubleshooting
+
+**better-sqlite3 binding error (`Could not locate the bindings file`)**
+
+- Occurs when the native addon was compiled for a different Node ABI.
+- Fix by rebuilding after switching Node versions:
+
+  ```bash
+  cd apps/server
+  npm rebuild better-sqlite3
+  # or reinstall everything
+  rm -rf node_modules package-lock.json
+  npm install
+  ```
+
+**Port conflicts**
+
+- API defaults to `3000`, frontend to `5173`. Adjust via `.env` (backend) or Vite config (frontend) if they collide with other services.
+
+**OAuth 42 callback failures**
+
+- Ensure the redirect URI in the 42 dashboard matches `OAUTH42_REDIRECT_URI`.
+- When running both servers locally, the usual setup is `http://localhost:5173/`.
+
+---
+
+## License
+
+This project is distributed for educational purposes within the ft_transcendance curriculum. Review the LICENSE file (if provided) or consult project maintainers before using the code elsewhere.
