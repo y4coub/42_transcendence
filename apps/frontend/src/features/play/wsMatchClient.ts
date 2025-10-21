@@ -31,6 +31,7 @@ import type {
 	RematchRequestServerMessage,
 	RematchAcceptServerMessage,
 	RematchDeclineServerMessage,
+	ReadyStateMessage,
 } from '../../types/ws-messages';
 
 // Phase 6: Chat message types
@@ -46,6 +47,7 @@ type StateCallback = (state: StateMessage) => void;
 type GameOverCallback = (gameOver: GameOverMessage) => void;
 type CountdownCallback = (countdown: CountdownMessage) => void;
 type JoinedCallback = (joined: JoinedMessage) => void;
+type ReadyStateCallback = (ready: ReadyStateMessage) => void;
 type PausedCallback = (paused: PausedMessage) => void;
 type ResumeCallback = (resume: ResumeServerMessage) => void;
 type ErrorCallback = (error: ErrorMessage) => void;
@@ -61,6 +63,7 @@ export class WSMatchClient {
 	private stateCallbacks: Set<StateCallback> = new Set();
 	private gameOverCallbacks: Set<GameOverCallback> = new Set();
 	private countdownCallbacks: Set<CountdownCallback> = new Set();
+	private readyStateCallbacks: Set<ReadyStateCallback> = new Set();
 	private joinedCallbacks: Set<JoinedCallback> = new Set();
 	private pausedCallbacks: Set<PausedCallback> = new Set();
 	private resumeCallbacks: Set<ResumeCallback> = new Set();
@@ -362,6 +365,11 @@ export class WSMatchClient {
 		return () => this.joinedCallbacks.delete(callback);
 	}
 
+	onReadyState(callback: ReadyStateCallback): () => void {
+		this.readyStateCallbacks.add(callback);
+		return () => this.readyStateCallbacks.delete(callback);
+	}
+
 	/**
 	 * Subscribe to paused events (T028)
 	 */
@@ -468,6 +476,10 @@ export class WSMatchClient {
 
 			case 'countdown':
 				this.countdownCallbacks.forEach(cb => cb(msg as CountdownMessage));
+				break;
+
+			case 'ready_state':
+				this.readyStateCallbacks.forEach(cb => cb(msg as ReadyStateMessage));
 				break;
 
 			case 'paused':

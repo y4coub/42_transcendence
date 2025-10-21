@@ -4,22 +4,9 @@ import { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 
-import {
-  MatchServiceError,
-  createMatchSession,
-  getMatchDetail,
-  recordMatchOutcome,
-} from './service';
-import {
-  matchCreateSchema,
-  matchCreateResponseSchema,
-  matchDetailSchema,
-  matchOkSchema,
-  matchResultSchema,
-} from './schemas';
-import { tournamentMatchIdSchema } from '@tournament/schemas';
 import * as matchRepo from './repository';
 import * as chatRepo from '@chat/repository';
+import * as ladderService from '../ladder/service';
 import { applyMultiplayerResult, applyPracticeResult } from './statsUpdater';
 
 // Schema for creating standalone Pong match
@@ -32,10 +19,6 @@ const pongMatchResponseSchema = z.object({
   p1Id: z.string().uuid(),
   p2Id: z.string().uuid(),
   state: z.string(),
-});
-
-const matchIdParamsSchema = z.object({
-  matchId: tournamentMatchIdSchema,
 });
 
 const matchRoutes: FastifyPluginAsync = async (app) => {
@@ -56,28 +39,6 @@ const matchRoutes: FastifyPluginAsync = async (app) => {
     }
 
     return userId;
-  };
-
-  const translateServiceError = (error: unknown): never => {
-    if (error instanceof MatchServiceError) {
-      switch (error.code) {
-        case 'PLAYER_NOT_FOUND':
-        case 'MATCH_NOT_FOUND':
-          throw app.httpErrors.notFound(error.message);
-        case 'MISMATCHED_TOURNAMENT':
-        case 'SAME_PLAYER':
-          throw app.httpErrors.badRequest(error.message);
-        case 'QUEUE_EMPTY':
-          throw app.httpErrors.conflict(error.message);
-        case 'MATCH_CREATION_FAILED':
-          throw app.httpErrors.internalServerError(error.message);
-        default:
-          break;
-      }
-    }
-
-    app.log.error({ err: error }, 'Unhandled match service error');
-    throw app.httpErrors.internalServerError();
   };
 
   // ========================================================================
@@ -241,24 +202,27 @@ const matchRoutes: FastifyPluginAsync = async (app) => {
         throw app.httpErrors.badRequest('Winner must be a player in the match');
       }
 
-		// Record winner and final scores
-		matchRepo.recordWinner({
-			matchId,
-			winnerId,
-			p1Score,
-			p2Score,
-		});
+      // Record winner and final scores
+	matchRepo.recordWinner({
+		matchId,
+		winnerId,
+		p1Score,
+		p2Score,
+	});
 
-		applyMultiplayerResult({
-			matchId,
-			p1Id: match.p1Id,
-			p2Id: match.p2Id,
-			winnerId,
-			p1Score,
-			p2Score,
-		});
+	applyMultiplayerResult({
+		matchId,
+		p1Id: match.p1Id,
+		p2Id: match.p2Id,
+		winnerId,
+		p1Score,
+		p2Score,
+	});
 
-		app.log.info({ matchId, winnerId, p1Score, p2Score }, 'Match result recorded');
+	const loserId = winnerId === match.p1Id ? match.p2Id : match.p1Id;
+	ladderService.onMatchCompleted(matchId, winnerId, loserId ?? null);
+
+	app.log.info({ matchId, winnerId, p1Score, p2Score }, 'Match result recorded');
 
 	return reply.send({ ok: true });
 	},
@@ -353,80 +317,6 @@ const matchRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  // ========================================================================
-  // Tournament Match Endpoints (existing)
-  // ========================================================================
-
-  router.post(
-    '/matches',
-    {
-      schema: {
-        body: matchCreateSchema,
-        response: {
-          201: matchCreateResponseSchema,
-        },
-      },
-    },
-    async (request, reply) => {
-      await resolveUserId(request);
-
-      try {
-        const match = createMatchSession(request.body);
-        return reply.code(201).send({ matchId: match.id });
-      } catch (error) {
-        translateServiceError(error);
-      }
-    },
-  );
-
-  router.get(
-    '/matches/:matchId',
-    {
-      schema: {
-        params: matchIdParamsSchema,
-        response: {
-          200: matchDetailSchema,
-        },
-      },
-    },
-    async (request, reply) => {
-      await resolveUserId(request);
-
-      try {
-        const detail = getMatchDetail(request.params.matchId);
-        return reply.send(detail);
-      } catch (error) {
-        translateServiceError(error);
-      }
-    },
-  );
-
-  router.patch(
-    '/matches/:matchId/result',
-    {
-      schema: {
-        params: matchIdParamsSchema,
-        body: matchResultSchema,
-        response: {
-          200: matchOkSchema,
-        },
-      },
-    },
-    async (request, reply) => {
-      await resolveUserId(request);
-
-      try {
-        if (request.params.matchId !== request.body.matchId) {
-          throw app.httpErrors.badRequest('Path and body matchId must match');
-        }
-
-        recordMatchOutcome(request.body);
-        return reply.send({ ok: true });
-      } catch (error) {
-        translateServiceError(error);
-      }
-    },
-  );
 };
 
 export default fp(matchRoutes, {

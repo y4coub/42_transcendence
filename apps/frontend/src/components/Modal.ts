@@ -44,7 +44,7 @@ export function showModal(options: ModalOptions): void {
   const overlay = createDiv("fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-md px-4");
 
   // Create modal
-  const modal = createDiv("w-full max-w-md rounded-xl border border-[#00C8FF]/40 bg-[#0f111a] shadow-[0_0_30px_rgba(0,200,255,0.25)] overflow-hidden");
+  const modal = createDiv("w-full max-w-md rounded border border-[#00C8FF]/40 bg-[#0f111a] shadow-[0_0_30px_rgba(0,200,255,0.25)] overflow-hidden");
 
   // Modal header
   const header = createDiv("flex items-center justify-between p-4 border-b border-[#00C8FF]/20");

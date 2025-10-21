@@ -17,7 +17,12 @@ import {
   type UserProfileUpdate,
 } from "../lib/api-client";
 import { showError, showSuccess, showPrompt } from "../components/Modal";
-import { resolveAvatarUrl } from "../utils/avatar";
+import { showProfilePreviewModal } from "../components/ProfilePreviewModal";
+import { resolveAvatarUrl, createProfileAvatarButton } from "../utils/avatar";
+
+const openProfilePreview = async (userId: string): Promise<void> => {
+  await showProfilePreviewModal({ userId });
+};
 
 let currentProfile: UserProfile | null = null;
 let currentStats: UserStats | null = null;
@@ -48,6 +53,11 @@ function updateProfileDisplay(profile: UserProfile): void {
   avatarElements.forEach((node) => {
     const container = node as HTMLElement;
     container.innerHTML = '';
+    container.dataset.profileAvatar = 'true';
+    container.dataset.userId = profile.userId;
+    container.onclick = () => {
+      void openProfilePreview(profile.userId);
+    };
     const initials = getInitials(displayName);
     const avatarSrc = resolveAvatarUrl(profile.avatarUrl);
 
@@ -426,7 +436,7 @@ async function updateRecentMatches(matches: RecentMatch[]): Promise<void> {
 
       const leftSide = createDiv("flex items-center gap-4");
       leftSide.appendChild(
-        createAvatar(initials, "h-12 w-12", opponent.avatarUrl)
+        createAvatar(initials, "h-12 w-12", opponent.avatarUrl, match.opponentId, opponent.name)
       );
 
       const gameInfo = createDiv();
@@ -513,8 +523,22 @@ function formatRelativeTime(timestamp: string): string {
 function createAvatar(
   initials: string,
   size: string = "h-10 w-10",
-  avatarUrl: string | null = null
+  avatarUrl: string | null = null,
+  userId?: string | null,
+  displayName?: string
 ): HTMLElement {
+  const safeDisplayName = displayName ?? initials;
+
+  if (userId) {
+    return createProfileAvatarButton({
+      userId,
+      displayName: safeDisplayName,
+      avatarUrl,
+      sizeClass: size,
+      onClick: openProfilePreview,
+    });
+  }
+
   const avatar = createDiv(
     `${size} rounded-full border border-[#00C8FF]/50 bg-[#00C8FF]/10 flex items-center justify-center overflow-hidden`
   );
@@ -522,13 +546,11 @@ function createAvatar(
   const resolvedAvatar = resolveAvatarUrl(avatarUrl);
   
   if (resolvedAvatar) {
-    // Display avatar image
     const img = document.createElement("img");
     img.src = resolvedAvatar;
-    img.alt = initials;
+    img.alt = safeDisplayName;
     img.className = "w-full h-full object-cover";
     img.onerror = () => {
-      // Fallback to initials if image fails to load
       img.remove();
       const text = createElement("span", "text-[#00C8FF]");
       text.textContent = initials;
@@ -536,7 +558,6 @@ function createAvatar(
     };
     avatar.appendChild(img);
   } else {
-    // Display initials
     const text = createElement("span", "text-[#00C8FF]");
     text.textContent = initials;
     avatar.appendChild(text);

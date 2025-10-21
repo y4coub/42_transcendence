@@ -581,6 +581,140 @@ export async function regenerateTwoFactorRecoveryCodes(code: string): Promise<Tw
 }
 
 // ============================================================================
+// Tournament Ladder API
+// ============================================================================
+
+export interface LadderPlayerSummary {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  rating: number;
+  rank: number;
+  streak: number;
+}
+
+export interface LadderQueueEntry {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  position: number;
+  joinedAt: string;
+  isYou: boolean;
+}
+
+export interface LadderMatchParticipant {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  rating: number;
+  role: 'champion' | 'challenger';
+}
+
+export interface LadderCurrentMatch {
+  matchId: string;
+  status: 'waiting' | 'countdown' | 'playing';
+  startedAt: string;
+  champion: LadderMatchParticipant;
+  challenger: LadderMatchParticipant;
+}
+
+export interface LadderOverview {
+  leaderboard: LadderPlayerSummary[];
+  you?: {
+    rating: number;
+    rank: number | null;
+    streak: number;
+  };
+  queue: {
+    inQueue: boolean;
+    position: number | null;
+    estimatedWaitSeconds: number | null;
+  };
+  queueLineup: LadderQueueEntry[];
+  currentMatch: LadderCurrentMatch | null;
+  recentMatches: Array<{
+    matchId: string;
+    opponentDisplayName: string;
+    opponentRating: number;
+    result: 'win' | 'loss';
+    score: string;
+    playedAt: string;
+  }>;
+}
+
+export interface LadderQueueState {
+  inQueue: boolean;
+  position: number | null;
+  estimatedWaitSeconds: number | null;
+  matchmakingMessage: string;
+}
+
+export async function getLadderOverview(): Promise<LadderOverview> {
+  return apiFetch<LadderOverview>('/ladder/overview');
+}
+
+export async function joinLadderQueue(): Promise<LadderQueueState> {
+  return apiFetch<LadderQueueState>('/ladder/queue/join', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export async function leaveLadderQueue(): Promise<LadderQueueState> {
+  return apiFetch<LadderQueueState>('/ladder/queue/leave', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export interface ArenaMatchRecord {
+  matchId: string;
+  id: string;
+  p1Id: string;
+  p2Id: string;
+  state: string;
+  p1Score: number;
+  p2Score: number;
+  winnerId: string | null;
+  pausedBy: string | null;
+  createdAt?: string;
+  startedAt?: string | null;
+  endedAt?: string | null;
+}
+
+export async function getArenaMatchRecord(matchId: string): Promise<ArenaMatchRecord> {
+  const raw = await apiFetch<{
+    matchId: string;
+    id: string;
+    p1Id: string;
+    p2Id: string;
+    p1Score: number;
+    p2Score: number;
+    state: string;
+    winnerId: string | null;
+    pausedBy: string | null;
+    createdAt?: string;
+    startedAt?: string | null;
+    endedAt?: string | null;
+  }>(`/matches/pong/${matchId}`);
+
+  return {
+    matchId: raw.matchId ?? raw.id,
+    id: raw.id,
+    p1Id: raw.p1Id,
+    p2Id: raw.p2Id,
+    p1Score: raw.p1Score,
+    p2Score: raw.p2Score,
+    state: raw.state,
+    winnerId: raw.winnerId,
+    pausedBy: raw.pausedBy ?? null,
+    createdAt: raw.createdAt,
+    startedAt: raw.startedAt ?? null,
+    endedAt: raw.endedAt ?? null,
+  };
+}
+
+// ============================================================================
 // Match API (already exists in play.ts, but centralizing here)
 // ============================================================================
 

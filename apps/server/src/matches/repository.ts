@@ -277,3 +277,23 @@ export function getActiveMatches(): MatchRecord[] {
 	
 	return stmt.all() as MatchRecord[];
 }
+
+/**
+ * Find the most recent active match for a user
+ */
+export function findActiveMatchForUser(userId: string): MatchRecord | null {
+	const db = getDatabase();
+
+	const stmt = db.prepare(`
+		SELECT
+			${matchRecordSelect}
+		FROM matches
+		WHERE (p1Id = ? OR p2Id = ?)
+		  AND state IN ('waiting', 'countdown', 'playing')
+		ORDER BY createdAt DESC
+		LIMIT 1
+	`);
+
+	const row = stmt.get(userId, userId) as MatchRecord | undefined;
+	return row ?? null;
+}

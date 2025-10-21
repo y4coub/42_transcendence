@@ -12,6 +12,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import { PongEngine, type GameState } from './engine';
 import * as matchRepo from './repository';
+import { onMatchCompleted as ladderOnMatchCompleted } from '../ladder/service';
 
 interface PlayerConnection {
 	stream: SocketStream;
@@ -57,7 +58,7 @@ export class PongGameService {
 				matchId,
 				p1Id,
 				p2Id,
-				engine: new PongEngine({ matchId }),
+				engine: new PongEngine({ matchId, winningScore: 5 }),
 				players: new Map(),
 				tickInterval: null,
 				state: 'waiting',
@@ -95,6 +96,8 @@ export class PongGameService {
 		this.logger.info({ matchId, playerId, playerCount: game.players.size }, 'Player connected to game');
 		this.logger.info({ matchId, players: Array.from(game.players.keys()) }, 'Current players in game');
 
+		this.broadcastReadyState(matchId);
+
 		// Phase 4: Both players must ready up before countdown starts
 		// No longer auto-start countdown when both players connect
 	}
@@ -110,6 +113,8 @@ export class PongGameService {
 
 		game.players.delete(playerId);
 		this.logger.info({ matchId, playerId, playerCount: game.players.size }, 'Player disconnected');
+
+		this.broadcastReadyState(matchId);
 
 		// Stop game if a player disconnects
 		if (game.state === 'playing' || game.state === 'countdown') {
@@ -144,6 +149,8 @@ export class PongGameService {
  			playersReady: Array.from(game.players.entries()).map(([id, p]) => ({ playerId: id, ready: p.ready })),
 		}, 'Player ready');
 
+		this.broadcastReadyState(matchId);
+
 		// Check if both players ready
 		const allReady = Array.from(game.players.values()).every(p => p.ready);
 		if (allReady && game.state === 'waiting' && game.players.size === 2) {
@@ -163,6 +170,25 @@ export class PongGameService {
 		this.broadcast(matchId, {
 			type: 'countdown',
 			seconds,
+		});
+	}
+
+	private broadcastReadyState(matchId: string): void {
+		const game = this.games.get(matchId);
+		if (!game) {
+			return;
+		}
+
+		const players = Array.from(game.players.values()).map((player) => ({
+			playerId: player.playerId,
+			ready: player.ready,
+		}));
+
+		this.broadcast(matchId, {
+			type: 'ready_state',
+			matchId,
+			players,
+			state: game.state,
 		});
 	}
 
@@ -281,21 +307,26 @@ export class PongGameService {
 			startedAt: new Date().toISOString(),
 		});
 
-		// Broadcast countdown
+		this.broadcastReadyState(matchId);
+		this.broadcastCountdown(matchId, game.countdownValue);
+
+		// Broadcast countdown ticks
 		const countdownInterval = setInterval(() => {
 			if (!game || game.state !== 'countdown') {
 				clearInterval(countdownInterval);
 				return;
 			}
 
-			this.broadcastCountdown(matchId, game.countdownValue);
+			game.countdownValue -= 1;
 
-			game.countdownValue--;
-
-			if (game.countdownValue < 0) {
+			if (game.countdownValue <= 0) {
+				this.broadcastCountdown(matchId, Math.max(game.countdownValue, 0));
 				clearInterval(countdownInterval);
 				this.startGame(matchId);
+				return;
 			}
+
+			this.broadcastCountdown(matchId, game.countdownValue);
 		}, 1000);
 	}
 
@@ -317,6 +348,8 @@ export class PongGameService {
 			matchId,
 			state: 'playing',
 		});
+
+		this.broadcastReadyState(matchId);
 
 		// Start game loop (60 Hz tick rate)
 		game.tickInterval = setInterval(() => {
@@ -496,9 +529,18 @@ export class PongGameService {
 
 		// Get final state
 		const finalState = game.engine.getState();
-		const winnerId = reason === 'completed' 
-			? game.engine.getWinnerId(game.p1Id, game.p2Id)
-			: (game.players.size > 0 ? Array.from(game.players.keys())[0] : game.p1Id); // Remaining player wins on forfeit
+		let winnerId =
+			reason === 'completed'
+				? game.engine.getWinnerId(game.p1Id, game.p2Id)
+				: game.players.size > 0
+				? Array.from(game.players.keys())[0]
+				: game.p1Id; // Remaining player wins on forfeit
+
+		if (!winnerId) {
+			winnerId = game.p1Id ?? game.p2Id;
+		}
+
+		const loserId = winnerId === game.p1Id ? game.p2Id : game.p1Id;
 
 		// Record winner in database
 		matchRepo.recordWinner({
@@ -523,6 +565,8 @@ export class PongGameService {
 			finalScore: finalState.score,
 			reason: reason === 'completed' ? 'score_limit' : 'forfeit',
 		});
+
+		ladderOnMatchCompleted(matchId, winnerId, loserId ?? null);
 
 		// Clean up after a delay to allow post-game flows (rematch requests, etc.)
 		if (game.cleanupTimer) {

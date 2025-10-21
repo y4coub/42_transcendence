@@ -212,6 +212,16 @@ export interface CountdownMessage {
   seconds: number;       // Remaining countdown (3, 2, 1)
 }
 
+export interface ReadyStateMessage {
+  type: 'ready_state';
+  matchId: string;
+  state: MatchState;
+  players: Array<{
+    playerId: string;
+    ready: boolean;
+  }>;
+}
+
 /**
  * Notify match has been paused
  * Timing: Immediately when player sends pause message
@@ -315,6 +325,7 @@ export type ServerMessage =
   | ConnectionOkMessage
   | JoinedMessage
   | StateMessage
+  | ReadyStateMessage
   | CountdownMessage
   | PausedMessage
   | ResumeServerMessage
@@ -391,8 +402,9 @@ export function isServerMessage(msg: BaseMessage): msg is ServerMessage {
     'connection_ok',
     'joined',
     'state',
+    'ready_state',
     'countdown',
-    'pause',
+    'paused',
     'resume',
     'game_over',
     'error',

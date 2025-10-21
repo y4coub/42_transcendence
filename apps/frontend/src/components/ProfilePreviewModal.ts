@@ -33,7 +33,7 @@ export async function showProfilePreviewModal(options: ProfilePreviewOptions): P
   overlay.dataset.modalKey = activeModalKey;
 
   const modal = createDiv(
-    "w-full max-w-4xl rounded-xl border border-[#00C8FF]/40 bg-[#10121a] shadow-[0_0_45px_rgba(0,200,255,0.25)] overflow-hidden flex flex-col"
+    "w-full max-w-4xl rounded border border-[#00C8FF]/40 bg-[#10121a] shadow-[0_0_45px_rgba(0,200,255,0.25)] overflow-hidden flex flex-col"
   );
 
   const header = createDiv("flex items-center justify-between border-b border-[#00C8FF]/20 px-6 py-4");

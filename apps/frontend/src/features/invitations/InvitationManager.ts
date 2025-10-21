@@ -350,7 +350,6 @@ export class InvitationManager {
     closeModal();
     sessionStorage.setItem('currentMatchId', matchId);
     sessionStorage.setItem('currentOpponentId', opponentId);
-    sessionStorage.setItem('matchAutoReady', '1');
     const currentRoute = getCurrentRoute();
     if (currentRoute?.id === 'game') {
       void playPage.beginExternalMatchLaunch();

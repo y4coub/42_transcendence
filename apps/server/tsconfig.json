@@ -18,7 +18,7 @@
 			"@auth/*": ["./auth/*"],
 			"@chat/*": ["./chat/*"],
 			"@matches/*": ["./matches/*"],
-			"@tournament/*": ["./tournament/*"],
+			"@ladder/*": ["./ladder/*"],
 			"@stats/*": ["./stats/*"],
 			"@users/*": ["./users/*"],
 			"@infra/*": ["./infra/*"],

@@ -1,6 +1,6 @@
 import { createDiv, createElement, createButton, createInput, appendChildren } from "../utils/dom";
 import { createIcon } from "../utils/icons";
-import { resolveAvatarUrl } from "../utils/avatar";
+import { resolveAvatarUrl, createProfileAvatarButton } from "../utils/avatar";
 import { getUserId } from "../lib/auth";
 import { dashboardState } from "../features/home/state";
 import type { DashboardState } from "../features/home/state";
@@ -25,6 +25,7 @@ import type {
 } from "../lib/api-client";
 import { navigate } from "../lib/router-instance";
 import { showError } from "../components/Modal";
+import { showProfilePreviewModal } from "../components/ProfilePreviewModal";
 
 // Current dashboard data
 let currentUserStats: UserStats | null = null;
@@ -40,6 +41,10 @@ let friendSearchError: string | null = null;
 let friendSearchQuery = '';
 let friendSearchRequestToken = 0;
 
+const openProfilePreview = async (userId: string): Promise<void> => {
+  await showProfilePreviewModal({ userId });
+};
+
 function handleDashboardState(state: DashboardState): void {
   currentUserStats = state.userStats;
   currentLeaderboard = state.leaderboard;
@@ -53,8 +58,23 @@ function createAvatar(
   initials: string,
   size: string = "h-10 w-10",
   avatarUrl: string | null = null,
-  borderClass: string = "border-[#00C8FF]/50"
+  borderClass: string = "border-[#00C8FF]/50",
+  userId?: string,
+  displayName?: string
 ): HTMLElement {
+  const safeDisplayName = displayName ?? initials;
+
+  if (userId) {
+    return createProfileAvatarButton({
+      userId,
+      displayName: safeDisplayName,
+      avatarUrl,
+      sizeClass: size,
+      borderClass,
+      onClick: openProfilePreview,
+    });
+  }
+
   const avatar = createDiv(
     `${size} rounded-full border ${borderClass} bg-[#00C8FF]/10 flex items-center justify-center overflow-hidden`
   );
@@ -63,7 +83,7 @@ function createAvatar(
 
   const img = document.createElement("img");
   img.src = resolvedAvatar;
-  img.alt = initials;
+  img.alt = safeDisplayName;
   img.className = "w-full h-full object-cover";
   img.onerror = () => {
     img.remove();
@@ -156,7 +176,7 @@ function renderFriendRequests(): void {
 
       const info = createDiv("flex min-w-0 flex-1 items-center gap-3");
       const initials = request.displayName.substring(0, 2).toUpperCase();
-      const avatar = createAvatar(initials, "h-10 w-10", request.avatarUrl, "border-[#00C8FF]/30");
+      const avatar = createAvatar(initials, "h-10 w-10", request.avatarUrl, "border-[#00C8FF]/30", request.userId, request.displayName);
       const meta = createDiv("flex min-w-0 flex-col");
       const name = createElement("span", "truncate text-sm font-semibold text-[#E0E0E0]");
       name.textContent = request.displayName;
@@ -199,7 +219,7 @@ function renderFriendRequests(): void {
 
       const info = createDiv("flex min-w-0 flex-1 items-center gap-3");
       const initials = request.displayName.substring(0, 2).toUpperCase();
-      const avatar = createAvatar(initials, "h-10 w-10", request.avatarUrl, "border-[#00C8FF]/20");
+      const avatar = createAvatar(initials, "h-10 w-10", request.avatarUrl, "border-[#00C8FF]/20", request.userId, request.displayName);
       const meta = createDiv("flex min-w-0 flex-col");
       const name = createElement("span", "truncate text-sm font-semibold text-[#E0E0E0]");
       name.textContent = request.displayName;
@@ -262,7 +282,7 @@ function renderFriendSearch(): void {
 
     const header = createDiv('flex items-center gap-3');
     const initials = result.displayName.substring(0, 2).toUpperCase();
-    const avatar = createAvatar(initials, 'h-10 w-10', result.avatarUrl, 'border-[#00C8FF]/25');
+    const avatar = createAvatar(initials, 'h-10 w-10', result.avatarUrl, 'border-[#00C8FF]/25', result.userId, result.displayName);
     const meta = createDiv('min-w-0 flex-1');
     const name = createElement('span', 'block truncate text-sm font-semibold text-[#E0E0E0]');
     name.textContent = result.displayName;
@@ -489,12 +509,26 @@ function updateDashboardDisplay(): void {
     const profileNameEl = document.querySelector('[data-profile-name]');
     if (profileNameEl) profileNameEl.textContent = currentUserProfile.displayName;
     
-    const profileAvatarEl = document.querySelector('[data-profile-avatar]');
-    if (profileAvatarEl) {
-      profileAvatarEl.innerHTML = '';
+    const profileAvatarNode = document.querySelector('[data-profile-avatar]');
+    if (profileAvatarNode) {
+      profileAvatarNode.innerHTML = '';
+      if (profileAvatarNode instanceof HTMLElement) {
+        profileAvatarNode.setAttribute('data-profile-avatar', 'true');
+        profileAvatarNode.setAttribute('data-user-id', currentUserProfile.userId);
+        profileAvatarNode.onclick = () => {
+          void openProfilePreview(currentUserProfile!.userId);
+        };
+      }
       const initials = currentUserProfile.displayName.substring(0, 2).toUpperCase();
-      const avatar = createAvatar(initials, "h-20 w-20 border-2 shadow-[0_0_15px_rgba(0,200,255,0.5)]", currentUserProfile.avatarUrl);
-      profileAvatarEl.appendChild(avatar);
+      const avatar = createAvatar(
+        initials,
+        "h-20 w-20 border-2 shadow-[0_0_15px_rgba(0,200,255,0.5)]",
+        currentUserProfile.avatarUrl,
+        "border-[#00C8FF]/60",
+        currentUserProfile.userId,
+        currentUserProfile.displayName
+      );
+      profileAvatarNode.appendChild(avatar);
     }
 
     const welcomeNameEl = document.querySelector('[data-welcome-name]');
@@ -551,7 +585,7 @@ function updateLeaderboardDisplay(): void {
     rankPill.textContent = `#${index + 1}`;
 
     const initials = entry.displayName.substring(0, 2).toUpperCase();
-    const avatar = createAvatar(initials, "h-10 w-10", entry.avatarUrl);
+    const avatar = createAvatar(initials, "h-10 w-10", entry.avatarUrl, "border-[#00C8FF]/40", entry.userId, entry.displayName);
 
     const nameBlock = createDiv("flex min-w-0 flex-1 flex-col");
     const name = createElement("span", "truncate text-sm font-semibold text-[#E6E8F5]");
@@ -620,11 +654,25 @@ function updateRecentMatchesDisplay(): void {
     const loserInitials = match.loserName.substring(0, 2).toUpperCase();
 
     const avatarStack = createDiv("flex items-center");
-    const winnerAvatar = createAvatar(winnerInitials, "h-10 w-10", match.winnerAvatarUrl ?? null, "border-[#00C8FF]");
+    const winnerAvatar = createAvatar(
+      winnerInitials,
+      "h-10 w-10",
+      match.winnerAvatarUrl ?? null,
+      "border-[#00C8FF]",
+      match.winnerId,
+      match.winnerName
+    );
     winnerAvatar.classList.remove("bg-[#00C8FF]/10");
     winnerAvatar.classList.add("bg-[#00C8FF]/18", "shadow-[0_0_12px_rgba(0,200,255,0.35)]", "ring-2", "ring-[#00C8FF]/35");
 
-    const loserAvatar = createAvatar(loserInitials, "h-9 w-9", match.loserAvatarUrl ?? null, "border-[#FF008C]");
+    const loserAvatar = createAvatar(
+      loserInitials,
+      "h-9 w-9",
+      match.loserAvatarUrl ?? null,
+      "border-[#FF008C]",
+      match.loserId,
+      match.loserName
+    );
     loserAvatar.classList.remove("bg-[#00C8FF]/10");
     loserAvatar.classList.add("bg-[#FF008C]/15", "-ml-3", "shadow-[0_0_10px_rgba(255,0,140,0.28)]", "ring-2", "ring-[#FF008C]/25");
 

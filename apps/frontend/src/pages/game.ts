@@ -24,7 +24,12 @@ import {
   createElement,
   appendChildren,
 } from "../utils/dom";
-import { resolveAvatarUrl } from "../utils/avatar";
+import { resolveAvatarUrl, createProfileAvatarButton } from "../utils/avatar";
+import { showProfilePreviewModal } from "../components/ProfilePreviewModal";
+
+const openProfilePreview = async (userId: string): Promise<void> => {
+  await showProfilePreviewModal({ userId });
+};
 
 /**
  * Create avatar with image support or initials fallback
@@ -33,8 +38,20 @@ function createAvatar(
   displayName: string,
   avatarUrl: string | null,
   size: string = "h-10 w-10",
-  borderColor: string = "border-[#00C8FF]"
+  borderColor: string = "border-[#00C8FF]",
+  userId?: string | null
 ): HTMLElement {
+  if (userId) {
+    return createProfileAvatarButton({
+      userId,
+      displayName,
+      avatarUrl,
+      sizeClass: size,
+      borderClass: borderColor,
+      onClick: openProfilePreview,
+    });
+  }
+
   const avatar = createDiv(
     `${size} rounded-full border-2 ${borderColor} bg-[#00C8FF]/10 flex items-center justify-center overflow-hidden`
   );
@@ -96,7 +113,8 @@ function createInfoPill(id: string, label: string, value: string): HTMLElement {
 export function updatePlayerInfo(
   playerNum: 1 | 2,
   displayName: string,
-  avatarUrl: string | null
+  avatarUrl: string | null,
+  userId?: string | null
 ): void {
   const nameEl = document.getElementById(`player${playerNum}-name`);
   const avatarContainer = document.getElementById(`player${playerNum}-avatar`);
@@ -109,7 +127,7 @@ export function updatePlayerInfo(
     avatarContainer.innerHTML = "";
     avatarContainer.setAttribute('data-player-avatar', String(playerNum));
     const borderColor = playerNum === 1 ? "border-[#00C8FF]" : "border-[#FF008C]";
-    const avatarEl = createAvatar(displayName, avatarUrl, "h-12 w-12", borderColor);
+    const avatarEl = createAvatar(displayName, avatarUrl, "h-12 w-12", borderColor, userId);
     avatarEl.setAttribute('data-player-avatar-inner', String(playerNum));
     const initials = avatarEl.querySelector('span');
     if (initials) {
@@ -257,7 +275,7 @@ export function createGamePage(): HTMLElement {
   appendChildren(scoreValue, [scorePlayer, scoreDash, scoreOpponent]);
   const scoreSubtext = createElement("span", "text-[10px] uppercase tracking-[0.4em] text-[#E0E0E0]/40");
   scoreSubtext.id = "match-score-target";
-  scoreSubtext.textContent = "First to Eleven";
+  scoreSubtext.textContent = "First to Five";
   appendChildren(scoreStack, [scoreTitle, scoreValue, scoreSubtext]);
 
   const player2 = createDiv("flex min-w-0 items-center gap-4");

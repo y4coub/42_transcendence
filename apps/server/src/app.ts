@@ -10,7 +10,7 @@ import securityPlugin from '@plugins/security';
 import jwtPlugin from '@plugins/jwt';
 import authModule from '@auth/index';
 import chatModule from '@chat/index';
-import tournamentModule from '@tournament/index';
+import ladderModule from '@ladder/index';
 import matchModule from '@matches/index';
 import statsModule from '@stats/index';
 import usersModule from '@users/index';
@@ -70,7 +70,7 @@ export const buildApp = () => {
 	void app.register(jwtPlugin);
 	void app.register(authModule);
 	void app.register(chatModule);
-	void app.register(tournamentModule);
+	void app.register(ladderModule);
 	void app.register(matchModule);
 	void app.register(usersModule);
 	void app.register(statsModule);

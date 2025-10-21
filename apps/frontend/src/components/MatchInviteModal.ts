@@ -17,7 +17,7 @@ export function showIncomingInviteModal(options: IncomingInviteOptions): void {
   const overlay = createDiv("fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md px-4");
   overlay.setAttribute("data-match-invite", options.inviteId);
 
-  const card = createDiv("w-full p-4 max-w-md rounded-xl border border-[#00C8FF]/30 bg-[#0f111a]/95 shadow-[0_0_40px_rgba(0,200,255,0.18)]");
+  const card = createDiv("w-full p-4 max-w-md rounded border border-[#00C8FF]/30 bg-[#0f111a]/95 shadow-[0_0_40px_rgba(0,200,255,0.18)]");
 
   const header = createDiv("p-6 border-b border-[#00C8FF]/20");
   const title = createElement("h2", "text-xl font-semibold text-[#E0E0E0]");

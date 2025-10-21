@@ -127,7 +127,7 @@ export function createLoginPage(): HTMLElement {
     const emailLabel = createLabel("Email", "email", "text-[#E0E0E0]");
     const emailInput = createInput(
       "email",
-      "w-full px-4 py-3 rounded-xl border border-[#00C8FF]/25 bg-[#091226]/80 text-[#E0E0E0] focus:border-[#00C8FF] focus:outline-none focus:ring-2 focus:ring-[#00C8FF]/40 transition",
+      "w-full px-4 py-3 rounded border border-[#00C8FF]/25 bg-[#091226]/80 text-[#E0E0E0] focus:border-[#00C8FF] focus:outline-none focus:ring-2 focus:ring-[#00C8FF]/40 transition",
       "you@example.com"
     );
     emailInput.id = "email";
@@ -140,7 +140,7 @@ export function createLoginPage(): HTMLElement {
       const displayNameLabel = createLabel("Display Name", "displayName", "text-[#E0E0E0]");
       displayNameInput = createInput(
         "text",
-        "w-full px-4 py-3 rounded-xl border border-[#00C8FF]/25 bg-[#091226]/80 text-[#E0E0E0] focus:border-[#00C8FF] focus:outline-none focus:ring-2 focus:ring-[#00C8FF]/40 transition",
+        "w-full px-4 py-3 rounded border border-[#00C8FF]/25 bg-[#091226]/80 text-[#E0E0E0] focus:border-[#00C8FF] focus:outline-none focus:ring-2 focus:ring-[#00C8FF]/40 transition",
         "Choose how others see you"
       );
       displayNameInput.id = "displayName";
@@ -161,7 +161,7 @@ export function createLoginPage(): HTMLElement {
     const passWrapper = createDiv("relative w-full");
     const passwordInput = createInput(
       "password",
-      "w-full pr-12 pl-4 py-3 rounded-xl border border-[#00C8FF]/25 bg-[#091226]/80 text-[#E0E0E0] focus:border-[#00C8FF] focus:outline-none focus:ring-2 focus:ring-[#00C8FF]/40 transition",
+      "w-full pr-12 pl-4 py-3 rounded border border-[#00C8FF]/25 bg-[#091226]/80 text-[#E0E0E0] focus:border-[#00C8FF] focus:outline-none focus:ring-2 focus:ring-[#00C8FF]/40 transition",
       "Enter password"
     );
     passwordInput.id = "password";
@@ -199,7 +199,7 @@ export function createLoginPage(): HTMLElement {
 
     const primaryBtn = createButton(
       mode === "login" ? "SIGN IN" : "CREATE ACCOUNT",
-      "w-full rounded-xl bg-[#00C8FF] px-5 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-[#060B1A] shadow-[0_0_24px_rgba(0,200,255,0.25)] transition hover:bg-[#00C8FF]/90 focus:outline-none focus:ring-2 focus:ring-[#00C8FF]/60",
+      "w-full rounded bg-[#00C8FF] px-5 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-[#060B1A] shadow-[0_0_24px_rgba(0,200,255,0.25)] transition hover:bg-[#00C8FF]/90 focus:outline-none focus:ring-2 focus:ring-[#00C8FF]/60",
       () => {
         if (isSubmitting) return;
 
@@ -309,7 +309,7 @@ export function createLoginPage(): HTMLElement {
             } else {
               // Registration success - switch to login mode after brief success message
               primaryBtn.textContent = "✓ ACCOUNT CREATED!";
-              primaryBtn.className = "w-full rounded-xl bg-gradient-to-r from-[#4ADE80] to-[#22D3EE] px-5 py-3 text-sm font-semibold text-[#052112] shadow-[0_0_24px_rgba(34,211,238,0.3)] transition";
+              primaryBtn.className = "w-full rounded bg-gradient-to-r from-[#4ADE80] to-[#22D3EE] px-5 py-3 text-sm font-semibold text-[#052112] shadow-[0_0_24px_rgba(34,211,238,0.3)] transition";
               
               setTimeout(() => {
                 mode = "login";
@@ -358,7 +358,7 @@ export function createLoginPage(): HTMLElement {
 
     const signIn42Btn = createButton(
       "Continue with 42",
-      "w-full rounded-xl border border-[#00C8FF]/30 bg-[#091226]/70 px-5 py-3 text-sm font-semibold text-[#00C8FF] hover:border-[#00C8FF]/60 hover:text-[#E0E0E0] hover:bg-[#00C8FF]/15 transition-colors inline-flex items-center justify-center gap-3"
+      "w-full rounded border border-[#00C8FF]/30 bg-[#091226]/70 px-5 py-3 text-sm font-semibold text-[#00C8FF] hover:border-[#00C8FF]/60 hover:text-[#E0E0E0] hover:bg-[#00C8FF]/15 transition-colors inline-flex items-center justify-center gap-3"
     );
     signIn42Btn.addEventListener("click", () => {
       // Redirect to backend OAuth start endpoint
@@ -402,7 +402,7 @@ export function createLoginPage(): HTMLElement {
     for (let i = 0; i < 6; i++) {
       const input = createInput(
         "text",
-        "w-12 h-12 rounded-xl border border-[#00C8FF]/30 bg-[#091226]/70 text-center text-lg font-semibold text-[#E0E0E0] focus:border-[#00C8FF] focus:outline-none focus:ring-2 focus:ring-[#00C8FF]/40",
+        "w-12 h-12 rounded border border-[#00C8FF]/30 bg-[#091226]/70 text-center text-lg font-semibold text-[#E0E0E0] focus:border-[#00C8FF] focus:outline-none focus:ring-2 focus:ring-[#00C8FF]/40",
       );
       input.maxLength = 1;
       input.inputMode = 'numeric';
@@ -428,7 +428,7 @@ export function createLoginPage(): HTMLElement {
 
     const verifyBtn = createButton(
       "VERIFY & CONTINUE",
-      "w-full rounded-xl bg-[#00C8FF] px-5 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-[#060B1A] shadow-[0_0_24px_rgba(0,200,255,0.25)] transition hover:bg-[#00C8FF]/90 focus:outline-none focus:ring-2 focus:ring-[#00C8FF]/60",
+      "w-full rounded bg-[#00C8FF] px-5 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-[#060B1A] shadow-[0_0_24px_rgba(0,200,255,0.25)] transition hover:bg-[#00C8FF]/90 focus:outline-none focus:ring-2 focus:ring-[#00C8FF]/60",
       () => {
         const code = otpInputs.map((input) => input.value).join("");
         if (code.length !== 6) {
@@ -495,7 +495,7 @@ export function createLoginPage(): HTMLElement {
 
     const backBtn = createButton(
       "Back to Login",
-      "w-full rounded-xl border border-transparent px-5 py-3 text-sm font-medium text-[#E0E0E0]/60 hover:text-[#00C8FF] hover:border-[#00C8FF]/30 transition",
+      "w-full rounded border border-transparent px-5 py-3 text-sm font-medium text-[#E0E0E0]/60 hover:text-[#00C8FF] hover:border-[#00C8FF]/30 transition",
       () => {
         card.innerHTML = "";
         card.appendChild(renderLoginForm());

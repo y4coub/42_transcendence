@@ -3,9 +3,6 @@ import fp from 'fastify-plugin';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
-import { getMatchById, getPlayerById } from '@tournament/repository';
-import { tournamentMatchSchema, tournamentMatchIdSchema, tournamentPlayerIdSchema } from '@tournament/schemas';
-
 import { matchStatePayloadSchema, clientMessageSchema, type ClientMessage as PongClientMessage } from './schemas';
 import * as matchRepo from './repository';
 import { PongGameService } from './pongService';
@@ -39,11 +36,11 @@ interface SocketContext {
 }
 
 const matchParamsSchema = z.object({
-  matchId: tournamentMatchIdSchema,
+  matchId: z.string().uuid(),
 });
 
 const matchQuerySchema = z.object({
-  playerId: tournamentPlayerIdSchema,
+  userId: z.string().uuid(),
 });
 
 const serialize = (payload: Record<string, unknown>) => JSON.stringify(payload);
@@ -166,17 +163,11 @@ const matchWsPlugin: FastifyPluginAsync = async (app) => {
       }
 
       const matchId = params.data.matchId;
-      const playerId = query.data.playerId;
+      const playerId = query.data.userId;
 
-      const match = getMatchById(matchId);
+      const match = matchRepo.getMatch(matchId);
       if (!match) {
         stream.socket.close(4404, 'Match not found');
-        return;
-      }
-
-      const player = getPlayerById(playerId);
-      if (!player || player.tournamentId !== match.tournamentId) {
-        stream.socket.close(4401, 'Unauthorized');
         return;
       }
 
@@ -212,7 +203,14 @@ const matchWsPlugin: FastifyPluginAsync = async (app) => {
             subscribe(matchId, context);
             sendToContext(context, {
               type: 'match',
-              match: tournamentMatchSchema.parse(match),
+              match: {
+                id: match.id,
+                p1Id: match.p1Id,
+                p2Id: match.p2Id,
+                state: match.state,
+                p1Score: match.p1Score,
+                p2Score: match.p2Score,
+              },
               playerId,
             });
             break;

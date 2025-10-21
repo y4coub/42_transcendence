@@ -5,7 +5,7 @@ import { clearAuth } from "../lib/auth";
 import { navigate } from "../lib/router-instance";
 
 interface NavigationItem {
-  id: "home" | "game" | "profile" | "chat";
+  id: "home" | "game" | "competitive" | "profile" | "chat";
   label: string;
   icon: keyof typeof icons;
 }
@@ -13,6 +13,7 @@ interface NavigationItem {
 const NAV_ITEMS: NavigationItem[] = [
   { id: "home", label: "Home", icon: "home" },
   { id: "game", label: "Arena", icon: "gamepad" },
+  { id: "competitive", label: "Tournament", icon: "trophy" },
   { id: "profile", label: "Profile", icon: "user" },
   { id: "chat", label: "Chat", icon: "messageSquare" },
 ];
@@ -20,6 +21,7 @@ const NAV_ITEMS: NavigationItem[] = [
 const PATH_MAP: Record<NavigationItem["id"], string> = {
   home: '/',
   game: '/arena',
+  competitive: '/tournament',
   profile: '/profile',
   chat: '/chat',
 };

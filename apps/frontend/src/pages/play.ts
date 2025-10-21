@@ -15,6 +15,7 @@ import type {
 	CountdownMessage,
 	PausedMessage,
 	ResumeServerMessage,
+	ReadyStateMessage,
 } from '../types/ws-messages';
 
 type GameMode = 'bot' | 'local' | 'multiplayer';
@@ -80,11 +81,16 @@ class PlayPage {
 	private currentOpponentName = 'Opponent';
 	private currentPlayerName = 'You';
 	private currentMatchId: string | null = null;
+	private currentOpponentId: string | null = null;
 	private matchResultSubmitted = false;
 	private lastKnownScore: { p1: number; p2: number } = { p1: 0, p2: 0 };
 	private profileCache = new Map<string, PlayerProfileSummary>();
 	private countdownTimers: Array<ReturnType<typeof setTimeout>> = [];
 	private countdownActive = false;
+	private pendingAutoReady = false;
+	private hasSentReady = false;
+	private latestReadyState: ReadyStateMessage | null = null;
+	private countdownNumberEl: HTMLElement | null = null;
 
 	async init(): Promise<void> {
 		try {
@@ -219,6 +225,150 @@ class PlayPage {
 		this.renderControls([]);
 	}
 
+	private renderReadyLobby(state: ReadyStateMessage | null): void {
+		if (!this.flowOverlay) {
+			return;
+		}
+
+		this.screen = 'loading';
+		this.countdownNumberEl = null;
+		this.clearCountdownTimers();
+		this.flowOverlay.classList.remove('hidden');
+		this.flowOverlay.innerHTML = '';
+
+		const players = state?.players ?? [];
+		const selfId = this.userId ?? '';
+		const opponentId = this.currentOpponentId ?? '';
+		const selfReady = players.find((player) => player.playerId === selfId)?.ready ?? this.hasSentReady;
+		const opponentReady = opponentId ? players.find((player) => player.playerId === opponentId)?.ready ?? false : false;
+		const bothReady = selfReady && opponentReady;
+
+		const backdrop = document.createElement('div');
+		backdrop.className = 'flex h-full w-full flex-col items-center justify-center gap-8 bg-[#070910]/90 px-6 py-10';
+
+		const title = document.createElement('h2');
+		title.className = 'text-2xl font-semibold uppercase tracking-[0.35em] text-[#00C8FF] text-center';
+		title.textContent = 'Match Lobby';
+		backdrop.appendChild(title);
+
+		const subtitle = document.createElement('p');
+		subtitle.className = 'text-sm text-[#E0E0E0]/70 text-center max-w-2xl';
+		subtitle.textContent = bothReady
+			? 'Both players are ready. Countdown starting…'
+			: selfReady
+			? `Waiting for ${this.currentOpponentName} to ready up.`
+			: 'Click ready when you are set. Countdown begins once both players confirm.';
+		backdrop.appendChild(subtitle);
+
+		const list = document.createElement('div');
+		list.className = 'w-full max-w-sm space-y-3';
+
+		const buildRow = (label: string, ready: boolean) => {
+			const row = document.createElement('div');
+			row.className = [
+				'flex items-center justify-between rounded-lg border px-4 py-3 transition-colors',
+				ready ? 'border-[#00C8FF]/40 bg-[#00C8FF]/10 text-[#E0E0E0]' : 'border-[#00C8FF]/15 bg-[#080d1a]/75 text-[#E0E0E0]/80',
+			].join(' ');
+
+			const name = document.createElement('span');
+			name.className = 'text-sm font-semibold uppercase tracking-[0.28em]';
+			name.textContent = label;
+
+			const status = document.createElement('span');
+			status.className = ready
+				? 'text-xs font-semibold uppercase tracking-[0.3em] text-[#00E0A4]'
+				: 'text-xs uppercase tracking-[0.3em] text-[#FFB347]';
+			status.textContent = ready ? 'Ready' : 'Not Ready';
+
+			row.appendChild(name);
+			row.appendChild(status);
+			return row;
+		};
+
+		list.appendChild(buildRow(this.currentPlayerName, selfReady));
+		list.appendChild(buildRow(this.currentOpponentName, opponentReady));
+		backdrop.appendChild(list);
+
+		const actionArea = document.createElement('div');
+		actionArea.className = 'flex w-full max-w-sm flex-col gap-3';
+
+		const readyButton = document.createElement('button');
+		readyButton.type = 'button';
+		readyButton.className =
+			'inline-flex items-center justify-center rounded border border-[#00C8FF]/50 bg-[#00C8FF]/10 px-6 py-3 text-xs font-semibold uppercase tracking-[0.3em] text-[#00C8FF] transition-colors hover:bg-[#00C8FF]/20 disabled:cursor-not-allowed disabled:opacity-60';
+		if (selfReady) {
+			readyButton.textContent = bothReady ? 'Ready! Countdown is starting…' : 'Ready — Waiting for opponent';
+			readyButton.disabled = true;
+		} else {
+			readyButton.textContent = 'Ready Up';
+			readyButton.addEventListener('click', () => {
+				if (this.hasSentReady) {
+					return;
+				}
+				this.hasSentReady = true;
+				this.wsClient?.sendReady();
+				this.renderReadyLobby(this.latestReadyState);
+			});
+		}
+		actionArea.appendChild(readyButton);
+
+		const hint = document.createElement('p');
+		hint.className = 'text-[11px] uppercase tracking-[0.3em] text-[#E0E0E0]/50 text-center';
+		hint.textContent = 'You can leave the lobby at any time using the controls below.';
+		actionArea.appendChild(hint);
+
+		backdrop.appendChild(actionArea);
+
+		this.flowOverlay.appendChild(backdrop);
+	}
+
+	private renderServerCountdown(seconds: number): void {
+		if (!this.flowOverlay) {
+			return;
+		}
+
+		this.screen = 'loading';
+		this.flowOverlay.classList.remove('hidden');
+
+		if (!this.countdownNumberEl) {
+			this.flowOverlay.innerHTML = '';
+			const backdrop = document.createElement('div');
+			backdrop.className = 'flex h-full w-full items-center justify-center bg-[#070910]/90 px-6';
+			const number = document.createElement('div');
+			number.className =
+				'text-6xl sm:text-7xl md:text-8xl font-bold uppercase tracking-[0.35em] text-[#00C8FF] drop-shadow-[0_0_30px_rgba(0,200,255,0.6)] transition-transform duration-300';
+			backdrop.appendChild(number);
+			this.flowOverlay.appendChild(backdrop);
+			this.countdownNumberEl = number;
+		}
+
+		if (!this.countdownNumberEl) {
+			return;
+		}
+
+		if (seconds <= 0) {
+			this.countdownNumberEl.textContent = 'GO';
+			this.countdownNumberEl.style.transform = 'scale(1.15)';
+
+			window.setTimeout(() => {
+				this.countdownNumberEl = null;
+				if (this.flowOverlay) {
+					this.flowOverlay.classList.add('hidden');
+					this.flowOverlay.innerHTML = '';
+				}
+			}, 600);
+			return;
+		}
+
+		this.countdownNumberEl.textContent = String(seconds);
+		this.countdownNumberEl.style.transform = 'scale(1.1)';
+		window.setTimeout(() => {
+			if (this.countdownNumberEl) {
+				this.countdownNumberEl.style.transform = 'scale(1)';
+			}
+		}, 200);
+	}
+
 	private clearCountdownTimers(): void {
 		if (this.countdownTimers.length > 0) {
 			this.countdownTimers.forEach((handle) => clearTimeout(handle));
@@ -293,6 +443,7 @@ class PlayPage {
 
 	private showPlaying(): void {
 		this.screen = 'playing';
+		this.countdownNumberEl = null;
 		this.flowOverlay?.classList.add('hidden');
 	}
 
@@ -585,7 +736,7 @@ class PlayPage {
 		updateMatchMeta('status', 'Countdown');
 		updateMatchMeta('mode', isBot ? 'Solo' : 'Local Multiplayer');
 		updateMatchMeta('latency', 'Offline');
-		setScoreboardTarget(isBot ? 'First to Five' : 'First to Eleven');
+		setScoreboardTarget(isBot ? 'First to Five' : 'First to Five');
 
 		this.renderer?.showPlaceholder('Get ready!');
 		this.clearCountdownTimers();
@@ -1034,6 +1185,8 @@ class PlayPage {
 				throw new Error('Opponent not assigned yet.');
 			}
 
+			this.currentOpponentId = opponentId;
+
 			const [selfProfile, opponentProfile] = await Promise.all([
 				this.ensureProfile(this.userId),
 				this.ensureProfile(opponentId),
@@ -1043,12 +1196,28 @@ class PlayPage {
 			this.currentPlayerName = selfProfile.displayName;
 			this.currentOpponentName = opponentProfile.displayName;
 
-			if (amIPlayer1) {
-				applyPlayerNames(selfProfile.displayName, selfProfile.avatarUrl, opponentProfile.displayName, opponentProfile.avatarUrl, 1);
-			} else {
-				applyPlayerNames(opponentProfile.displayName, opponentProfile.avatarUrl, selfProfile.displayName, selfProfile.avatarUrl, 2);
-			}
-			setScoreboardTarget('First to Eleven');
+      if (amIPlayer1) {
+        applyPlayerNames(
+          selfProfile.displayName,
+          selfProfile.avatarUrl,
+          opponentProfile.displayName,
+          opponentProfile.avatarUrl,
+          1,
+          this.userId,
+          opponentId
+        );
+      } else {
+        applyPlayerNames(
+          opponentProfile.displayName,
+          opponentProfile.avatarUrl,
+          selfProfile.displayName,
+          selfProfile.avatarUrl,
+          2,
+          opponentId,
+          this.userId
+        );
+      }
+			setScoreboardTarget('First to Five');
 
 			updateScoreDisplay(match.p1Score ?? 0, match.p2Score ?? 0);
 			this.lastKnownScore = {
@@ -1067,12 +1236,23 @@ class PlayPage {
 	private async connectMultiplayerSocket(context: MultiplayerContext): Promise<void> {
 		this.wsClient = new WSMatchClient(context.matchId);
 
+		this.pendingAutoReady = Boolean(context.autoReady);
+		this.hasSentReady = false;
+		this.latestReadyState = null;
+		this.countdownNumberEl = null;
+
 		this.wsUnsubscribe.forEach((unsubscribe) => unsubscribe());
 		this.wsUnsubscribe = [];
 
 		this.wsUnsubscribe.push(
 			this.wsClient.onJoined((joined) => {
 				this.handleMultiplayerJoined(joined);
+			}),
+		);
+
+		this.wsUnsubscribe.push(
+			this.wsClient.onReadyState((ready) => {
+				this.handleReadyState(ready);
 			}),
 		);
 
@@ -1161,12 +1341,12 @@ class PlayPage {
 
 		if (joined.match.state === 'playing') {
 			this.showPlaying();
-		} else {
-			this.showLoading('Waiting for players…', { subtext: 'Stay ready, match will start soon.' });
-			// Auto-ready whenever we join a lobby.
-			window.setTimeout(() => {
-				this.wsClient?.sendReady();
-			}, 250);
+		} else if (joined.match.state === 'waiting' && this.latestReadyState) {
+			this.renderReadyLobby(this.latestReadyState);
+		} else if (joined.match.state === 'waiting') {
+			this.renderReadyLobby(null);
+		} else if (joined.match.state === 'countdown') {
+			this.renderReadyLobby(this.latestReadyState);
 		}
 
 		this.startMultiplayerInput();
@@ -1190,8 +1370,31 @@ class PlayPage {
 		});
 	}
 
+	private handleReadyState(ready: ReadyStateMessage): void {
+		this.latestReadyState = ready;
+
+		const selfId = this.userId;
+		const alreadyReady = ready.players.some((player) => player.playerId === selfId && player.ready);
+		if (ready.state === 'waiting') {
+			this.renderReadyLobby(ready);
+		}
+
+		if (this.pendingAutoReady && !this.hasSentReady && alreadyReady) {
+			this.hasSentReady = true;
+			this.pendingAutoReady = false;
+		}
+
+		if (this.pendingAutoReady && !this.hasSentReady && !alreadyReady) {
+			this.hasSentReady = true;
+			this.wsClient?.sendReady();
+			this.renderReadyLobby(ready);
+			this.pendingAutoReady = false;
+		}
+	}
+
 	private handleCountdown(countdown: CountdownMessage): void {
-		this.showLoading(`Match starts in ${countdown.seconds}`, { subtext: 'Get ready!' });
+		updateMatchMeta('status', 'Countdown');
+		this.renderServerCountdown(Math.max(0, Math.round(countdown.seconds)));
 	}
 
 	private handlePause(paused: PausedMessage): void {
@@ -1265,6 +1468,11 @@ private handleMultiplayerGameOver(gameOver: GameOverMessage): void {
 				p2Score: scores.p2,
 			});
 			await this.refreshDashboardStats();
+			window.dispatchEvent(
+				new CustomEvent('ladder:refresh', {
+					detail: { matchId: this.currentMatchId },
+				}),
+			);
 		} catch (error) {
 			console.error('[PlayPage] Failed to record match result', error);
 		}
@@ -1351,6 +1559,7 @@ private handleMultiplayerGameOver(gameOver: GameOverMessage): void {
 
 	private cleanupCurrentMode(): void {
 		this.clearCountdownTimers();
+		this.countdownNumberEl = null;
 
 		if (this.localRuntime) {
 			this.localRuntime.stop();
@@ -1370,10 +1579,17 @@ private handleMultiplayerGameOver(gameOver: GameOverMessage): void {
 		}
 
 		this.wsUnsubscribe.forEach((unsubscribe) => unsubscribe());
-	this.wsUnsubscribe = [];
-	this.awaitingInviteResponse = false;
-	this.renderer?.setState(null);
-	this.matchResultSubmitted = false;
+		this.wsUnsubscribe = [];
+		this.awaitingInviteResponse = false;
+		this.renderer?.setState(null);
+		this.matchResultSubmitted = false;
+		this.latestReadyState = null;
+		this.pendingAutoReady = false;
+		this.hasSentReady = false;
+		this.currentOpponentId = null;
+		this.currentMatchId = null;
+		this.currentOpponentName = 'Opponent';
+		this.currentPlayerName = 'You';
 }
 
 	private cleanupMultiplayerSession(): void {
@@ -1385,10 +1601,18 @@ private handleMultiplayerGameOver(gameOver: GameOverMessage): void {
 				// Ignore
 			}
 		}
-	this.wsClient = null;
-	this.wsUnsubscribe.forEach((unsubscribe) => unsubscribe());
-	this.wsUnsubscribe = [];
-	this.matchResultSubmitted = false;
+		this.wsClient = null;
+		this.wsUnsubscribe.forEach((unsubscribe) => unsubscribe());
+		this.wsUnsubscribe = [];
+		this.matchResultSubmitted = false;
+		this.latestReadyState = null;
+		this.pendingAutoReady = false;
+		this.hasSentReady = false;
+		this.countdownNumberEl = null;
+		this.currentOpponentId = null;
+		this.currentOpponentName = 'Opponent';
+		this.currentPlayerName = 'You';
+		this.currentMatchId = null;
 }
 
 	private consumeMultiplayerContextFromSession(): MultiplayerContext | null {
@@ -1458,7 +1682,7 @@ private handleMultiplayerGameOver(gameOver: GameOverMessage): void {
 		updateMatchMeta('status', 'Select Mode');
 		updateMatchMeta('mode', 'Menu');
 		updateMatchMeta('latency', '--');
-		setScoreboardTarget('First to Eleven');
+		setScoreboardTarget('First to Five');
 	}
 
 	getMode(): GameMode | null {
@@ -1477,7 +1701,7 @@ const AVATAR_INITIALS_CLASSES = ['text-[#00C8FF]', 'text-[#FF008C]'] as const;
 const SCOREBOARD_COLOR_CLASSES = ['text-[#00C8FF]', 'text-[#FF008C]'] as const;
 
 let scoreboardLocalIsPlayer1 = true;
-let currentScoreTargetText = 'First to Eleven';
+let currentScoreTargetText = 'First to Five';
 
 function setScoreboardTarget(text: string): void {
 	currentScoreTargetText = text;
@@ -1571,9 +1795,11 @@ function applyPlayerNames(
   p2Name: string,
   p2Avatar: string | null,
   localPlayer: 1 | 2 = 1,
+  p1Id?: string | null,
+  p2Id?: string | null,
 ): void {
-  updatePlayerInfo(1, p1Name, p1Avatar);
-  updatePlayerInfo(2, p2Name, p2Avatar);
+  updatePlayerInfo(1, p1Name, p1Avatar, p1Id ?? undefined);
+  updatePlayerInfo(2, p2Name, p2Avatar, p2Id ?? undefined);
   setPlayerCardRole(1, localPlayer === 1 ? 'local' : 'opponent');
   setPlayerCardRole(2, localPlayer === 2 ? 'local' : 'opponent');
   setScoreboardOrientation(localPlayer === 1);

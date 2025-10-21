@@ -1,6 +1,5 @@
 import { getDatabase } from '@infra/db/client';
-import { getPlayerById } from '@tournament/repository';
-import type { TournamentMatch } from '@tournament/schemas';
+import type { MatchRecord } from '@matches/repository';
 
 export type MatchOutcome = 'win' | 'loss';
 
@@ -213,24 +212,22 @@ export const rebuildUserStats = (userId: string): UserStatsSnapshot => {
 	})();
 };
 
-export const processMatchResult = (match: TournamentMatch): UserStatsSnapshot[] => {
-	if (match.status !== 'completed' || match.p1Score === null || match.p2Score === null) {
+export const processMatchResult = (match: MatchRecord): UserStatsSnapshot[] => {
+	if (match.state !== 'ended' || match.p1Score === null || match.p2Score === null) {
 		return [];
 	}
 
 	const snapshots: UserStatsSnapshot[] = [];
 	const seen = new Set<string>();
 
-	const p1 = getPlayerById(match.p1Id);
-	if (p1?.userId) {
-		seen.add(p1.userId);
-		const snapshot = rebuildUserStats(p1.userId);
+	if (match.p1Id && !seen.has(match.p1Id)) {
+		seen.add(match.p1Id);
+		const snapshot = rebuildUserStats(match.p1Id);
 		snapshots.push(snapshot);
 	}
 
-	const p2 = getPlayerById(match.p2Id);
-	if (p2?.userId && !seen.has(p2.userId)) {
-		const snapshot = rebuildUserStats(p2.userId);
+	if (match.p2Id && !seen.has(match.p2Id)) {
+		const snapshot = rebuildUserStats(match.p2Id);
 		snapshots.push(snapshot);
 	}
 

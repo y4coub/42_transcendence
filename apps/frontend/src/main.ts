@@ -3,6 +3,7 @@ import { createNavigation } from './components/navigation';
 import { createHomePage } from './pages/home';
 import { createGamePage } from './pages/game';
 import { playPage } from './pages/play';
+import { createCompetitivePage } from './pages/competitive';
 import { createProfilePage } from './pages/profile';
 import { createChatPage } from './pages/chat';
 import { createLoginPage } from './pages/login';
@@ -170,6 +171,12 @@ const protectedRoutes: RouteConfig[] = [
 					playPage.destroy();
 				},
 			}),
+		canActivate: requireAuthGuard,
+	},
+	{
+		id: 'competitive',
+		path: '/tournament',
+		createView: () => createProtectedView(createCompetitivePage),
 		canActivate: requireAuthGuard,
 	},
 	{

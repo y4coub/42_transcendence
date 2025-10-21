@@ -6,7 +6,7 @@ import {
   appendChildren,
 } from "../utils/dom";
 import { createIcon } from "../utils/icons";
-import { resolveAvatarUrl } from "../utils/avatar";
+import { resolveAvatarUrl, createProfileAvatarButton } from "../utils/avatar";
 import { getAccessToken, getUserId } from "../lib/auth";
 import { chatWS, type ChatMessage as WSChatMessage } from "../lib/chat-ws";
 import {
@@ -992,8 +992,22 @@ function initializeWebSocket(): void {
 function createAvatar(
   initials: string,
   size: string = "h-10 w-10",
-  avatarUrl: string | null = null
+  avatarUrl: string | null = null,
+  userId?: string,
+  displayName?: string
 ): HTMLElement {
+  const safeDisplayName = displayName ?? initials;
+
+  if (userId) {
+    return createProfileAvatarButton({
+      userId,
+      displayName: safeDisplayName,
+      avatarUrl,
+      sizeClass: size,
+      onClick: openUserProfile,
+    });
+  }
+
   const avatar = createDiv(
     `${size} rounded-full border border-[#00C8FF]/50 bg-[#00C8FF]/10 flex items-center justify-center overflow-hidden`
   );
@@ -1002,7 +1016,7 @@ function createAvatar(
 
   const img = document.createElement('img');
   img.src = resolvedAvatar;
-  img.alt = initials;
+  img.alt = safeDisplayName;
   img.className = 'w-full h-full object-cover';
   img.onerror = () => {
     img.remove();
@@ -1448,14 +1462,10 @@ export function createChatPage(): HTMLElement {
       const avatar = createAvatar(
         player.displayName.substring(0, 2).toUpperCase(),
         "h-10 w-10",
-        player.avatarUrl ?? null
+        player.avatarUrl ?? null,
+        player.userId,
+        player.displayName
       );
-      avatar.classList.add("cursor-pointer", "transition-transform", "hover:scale-[1.05]");
-      avatar.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        void openUserProfile(player.userId);
-      });
       button.appendChild(avatar);
 
       const meta = createDiv("flex-1 min-w-0");
@@ -1638,14 +1648,10 @@ export function createChatPage(): HTMLElement {
       const avatar = createAvatar(
         dm.displayName.substring(0, 2).toUpperCase(),
         "h-10 w-10",
-        dm.avatarUrl
+        dm.avatarUrl,
+        dm.userId,
+        dm.displayName
       );
-      avatar.classList.add("cursor-pointer", "transition-transform", "hover:scale-[1.05]");
-      avatar.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        void openUserProfile(dm.userId);
-      });
       button.appendChild(avatar);
 
       const meta = createDiv("flex-1 min-w-0");
@@ -1727,7 +1733,13 @@ export function createChatPage(): HTMLElement {
 
       const left = createDiv("flex items-center gap-3");
       left.appendChild(
-        createAvatar(entry.displayName.substring(0, 2).toUpperCase(), "h-9 w-9", entry.avatarUrl)
+        createAvatar(
+          entry.displayName.substring(0, 2).toUpperCase(),
+          "h-9 w-9",
+          entry.avatarUrl,
+          entry.userId,
+          entry.displayName
+        )
       );
 
       const meta = createDiv("flex flex-col");
@@ -1828,7 +1840,7 @@ export function createChatPage(): HTMLElement {
           avatarUrl = conversation.avatarUrl;
         }
       }
-      row.appendChild(createAvatar(initials, isSelf ? "h-8 w-8" : "h-10 w-10", avatarUrl));
+      row.appendChild(createAvatar(initials, isSelf ? "h-8 w-8" : "h-10 w-10", avatarUrl, msg.userId, safeDisplayName));
 
       const bubble = createDiv(
         `max-w-[70%] rounded border ${

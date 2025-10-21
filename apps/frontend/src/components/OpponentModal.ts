@@ -1,5 +1,10 @@
 import { createIcon } from "../utils/icons";
-import { resolveAvatarUrl } from "../utils/avatar";
+import { createProfileAvatarButton } from "../utils/avatar";
+import { showProfilePreviewModal } from "../components/ProfilePreviewModal";
+
+const openProfilePreview = async (userId: string): Promise<void> => {
+  await showProfilePreviewModal({ userId });
+};
 
 /**
  * OpponentModal - UI for selecting an opponent from online players
@@ -21,37 +26,6 @@ interface OpponentModalConfig {
 }
 
 let modalContainer: HTMLElement | null = null;
-
-/**
- * Create avatar element (image or initials fallback)
- */
-function createAvatar(
-  displayName: string,
-  avatarUrl: string | null,
-  size: string = "h-12 w-12"
-): HTMLElement {
-  const container = document.createElement("div");
-  container.className = `${size} rounded-full border border-[#00C8FF]/30 bg-[#101425] text-[#E0E0E0] font-semibold flex items-center justify-center overflow-hidden flex-shrink-0`;
-
-  const resolved = resolveAvatarUrl(avatarUrl);
-  const img = document.createElement("img");
-  img.src = resolved;
-  img.alt = displayName;
-  img.className = "w-full h-full object-cover";
-  img.onerror = () => {
-    // Fallback to initials if image fails
-    const initials = displayName
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-    container.innerHTML = `<span class="text-sm">${initials}</span>`;
-  };
-  container.appendChild(img);
-
-  return container;
-}
 
 /**
  * Create status badge
@@ -82,7 +56,14 @@ function createPlayerItem(
   const leftSection = document.createElement("div");
   leftSection.className = "flex items-center gap-3 flex-1";
 
-  const avatar = createAvatar(player.displayName, player.avatarUrl);
+  const avatar = createProfileAvatarButton({
+    userId: player.userId,
+    displayName: player.displayName,
+    avatarUrl: player.avatarUrl,
+    sizeClass: "h-12 w-12",
+    onClick: openProfilePreview,
+  });
+  avatar.classList.add("flex-shrink-0");
   leftSection.appendChild(avatar);
 
   const info = document.createElement("div");
@@ -171,7 +152,7 @@ export function showOpponentModal(config: OpponentModalConfig): void {
 
   // Modal content
   const modal = document.createElement("div");
-  modal.className = "bg-[#0f111a]/95 border border-[#00C8FF]/25 rounded-xl shadow-[0_0_40px_rgba(0,200,255,0.18)] max-w-2xl w-full max-h-[80vh] flex flex-col overflow-hidden";
+  modal.className = "bg-[#0f111a]/95 border border-[#00C8FF]/25 rounded shadow-[0_0_40px_rgba(0,200,255,0.18)] max-w-2xl w-full max-h-[80vh] flex flex-col overflow-hidden";
 
   // Header
   const header = document.createElement("div");
