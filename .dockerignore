@@ -1,0 +1,11 @@
+.git
+.gitignore
+node_modules
+**/node_modules
+apps/frontend/dist
+apps/server/dist
+certs
+*.env
+apps/server/.env
+apps/server/.env.local
+*.log

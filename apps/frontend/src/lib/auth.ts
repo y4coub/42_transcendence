@@ -4,14 +4,13 @@
  * Feature: 002-pong-game-integration (Phase 5: T030-T033)
  */
 
+import { getApiBaseUrl } from './api-base';
+
 const TOKEN_KEY = 'accessToken';
 const REFRESH_TOKEN_KEY = 'refreshToken';
 const USER_KEY = 'user';
 
-const AUTH_API_BASE =
-	window.location.hostname === 'localhost'
-		? 'http://localhost:3000'
-		: `https://${window.location.hostname}`;
+const AUTH_API_BASE = getApiBaseUrl();
 
 let refreshPromise: Promise<boolean> | null = null;
 

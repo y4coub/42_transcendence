@@ -1,14 +1,7 @@
 import { clearAuth, getAccessToken, refreshAccessToken } from './auth';
+import { getApiBaseUrl } from './api-base';
 
-// Detect API URL based on environment
-const getApiUrl = (): string => {
-  if (window.location.hostname === 'localhost') {
-    return 'http://localhost:3000';
-  }
-  return `https://${window.location.hostname}`;
-};
-
-export const API_URL = getApiUrl();
+export const API_URL = getApiBaseUrl();
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
   if (response.status === 204 || response.status === 205 || response.status === 304) {

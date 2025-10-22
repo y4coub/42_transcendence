@@ -10,7 +10,7 @@ WORKDIR /app
 COPY apps/server/package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Copy source code
 COPY apps/server/ ./
@@ -30,11 +30,12 @@ WORKDIR /app
 COPY apps/server/package*.json ./
 
 # Install production dependencies only
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src ./src
+COPY apps/server/scripts ./scripts
 
 # Create database directory
 RUN mkdir -p /app/db/data
@@ -45,5 +46,5 @@ COPY apps/server/db/migrations /app/db/migrations
 # Expose port
 EXPOSE 3000
 
-# Start the application
-CMD ["npm", "start"]
+# Run database migrations before starting the application
+CMD ["sh", "-c", "npm run migrate:up && npm start"]

@@ -1,19 +1,29 @@
-# Development stage
-FROM node:20-alpine
+# Build static assets
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
 COPY apps/frontend/package*.json ./
+RUN npm install
 
-# Install dependencies
-RUN npm cache clean --force && npm install
-
-# Copy application files
 COPY apps/frontend/ ./
 
-# Expose Vite dev server port
-EXPOSE 5173
+# Allow overriding the API base URL at build time
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
 
-# Start Vite dev server with host 0.0.0.0 to allow external access
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+RUN npm run build
+
+# Serve with Nginx
+FROM nginx:1.27-alpine
+
+# Replace default config with our HTTPS-enabled reverse proxy
+COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+
+# Copy built frontend assets
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+EXPOSE 443
+
+CMD ["nginx", "-g", "daemon off;"]

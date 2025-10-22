@@ -104,6 +104,27 @@ The SPA expects the backend to run on `http://localhost:3000` and to use the sam
 
 ---
 
+## Deploy with Docker + HTTPS
+
+A dockerised stack is available for HTTPS-ready local or remote hosting.
+
+1. Generate a self-signed certificate (defaults to `localhost`):
+   ```bash
+   make certs
+   # or override the host name / validity days
+   SERVER_NAME=your.dev.host CERT_DAYS=30 make certs
+   ```
+2. Build the frontend/backed images and start the stack:
+   ```bash
+   make build   # docker compose build
+   make up      # docker compose up -d
+   ```
+3. Visit `https://localhost` (HTTP requests on port 80 are redirected to HTTPS). The backend remains available on `http://localhost:3000` for health checks and tooling.
+
+The frontend container transparently proxies `https://<host>/api` and WebSocket traffic to the backend. Persistent SQLite data lives in the `backend_data` docker volume; remove it with `make clean` if you need a fresh database.
+
+---
+
 ## Available Scripts
 
 ### Backend (`apps/server`)

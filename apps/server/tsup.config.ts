@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-	entry: ['src/app.ts'],
+	entry: ['src/app.ts', 'src/infra/db/migrate.ts'],
 	format: ['esm'],
 	target: 'node20',
 	platform: 'node',

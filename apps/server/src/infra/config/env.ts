@@ -93,6 +93,7 @@ const env = parsedConfig.data;
 
 const corsOrigins = env.CORS_ORIGINS ?? [
   `https://${env.PUBLIC_DOMAIN}`,
+  "https://localhost",
   'http://localhost:5173',
   'http://localhost:3000',
 ];
