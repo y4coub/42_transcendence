@@ -408,9 +408,11 @@ export const linkOauthProfile = (
 
   if (
     attributes.avatarUrl !== undefined &&
-    !isDataUriAvatar(current?.avatarUrl ?? null)
+    !isDataUriAvatar(current?.avatarUrl ?? null) &&
+    current?.avatarOverride !== true
   ) {
     updates.avatarUrl = attributes.avatarUrl ?? null;
+    updates.avatarOverride = false;
   }
 
   updateUser(userId, updates);
@@ -449,9 +451,11 @@ export const findOrCreateOauthUser = (
     if (
       profile.avatarUrl !== undefined &&
       profile.avatarUrl !== existingBySub.avatarUrl &&
-      !isDataUriAvatar(existingBySub.avatarUrl)
+      !isDataUriAvatar(existingBySub.avatarUrl) &&
+      existingBySub.avatarOverride !== true
     ) {
       updates.avatarUrl = profile.avatarUrl ?? null;
+      updates.avatarOverride = false;
     }
     if (Object.keys(updates).length > 0) {
       updateUser(existingBySub.id, updates);
@@ -473,9 +477,11 @@ export const findOrCreateOauthUser = (
     if (
       profile.avatarUrl !== undefined &&
       profile.avatarUrl !== existingByEmail.avatarUrl &&
-      !isDataUriAvatar(existingByEmail.avatarUrl)
+      !isDataUriAvatar(existingByEmail.avatarUrl) &&
+      existingByEmail.avatarOverride !== true
     ) {
       updates.avatarUrl = profile.avatarUrl ?? null;
+      updates.avatarOverride = false;
     }
 
     updateUser(existingByEmail.id, updates);
@@ -488,6 +494,7 @@ export const findOrCreateOauthUser = (
     provider: '42',
     providerSub,
     avatarUrl: profile.avatarUrl ?? null,
+    avatarOverride: false,
     passHash: null,
   });
 

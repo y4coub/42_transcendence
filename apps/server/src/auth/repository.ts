@@ -11,6 +11,7 @@ export interface UserRecord {
   displayName: string;
   passHash: string | null;
   avatarUrl: string | null;
+  avatarOverride: boolean;
   provider: AuthProvider;
   providerSub: string | null;
   twofaSecret: string | null;
@@ -23,6 +24,7 @@ export interface CreateUserInput {
   displayName: string;
   passHash?: string | null;
   avatarUrl?: string | null;
+  avatarOverride?: boolean;
   provider: AuthProvider;
   providerSub?: string | null;
   twofaSecret?: string | null;
@@ -33,6 +35,7 @@ export interface UpdateUserInput {
   displayName?: string;
   passHash?: string | null;
   avatarUrl?: string | null;
+  avatarOverride?: boolean;
   provider?: AuthProvider;
   providerSub?: string | null;
   twofaSecret?: string | null;
@@ -134,6 +137,7 @@ const userSelect = `
     display_name AS displayName,
     pass_hash AS passHash,
     avatar_url AS avatarUrl,
+    avatar_override AS avatarOverride,
     provider,
     provider_sub AS providerSub,
     twofa_secret AS twofaSecret,
@@ -153,6 +157,7 @@ const mapUserRow = (row: Record<string, unknown> | undefined): UserRecord | unde
     displayName: row.displayName as string,
     passHash: (row.passHash as string | null) ?? null,
     avatarUrl: (row.avatarUrl as string | null) ?? null,
+    avatarOverride: Boolean(row.avatarOverride),
     provider: row.provider as AuthProvider,
     providerSub: (row.providerSub as string | null) ?? null,
     twofaSecret: (row.twofaSecret as string | null) ?? null,
@@ -173,6 +178,7 @@ export const createUser = (input: CreateUserInput): UserRecord => {
       display_name,
       pass_hash,
       avatar_url,
+      avatar_override,
       provider,
       provider_sub,
       twofa_secret,
@@ -184,6 +190,7 @@ export const createUser = (input: CreateUserInput): UserRecord => {
       @display_name,
       @pass_hash,
       @avatar_url,
+      @avatar_override,
       @provider,
       @provider_sub,
       @twofa_secret,
@@ -196,6 +203,7 @@ export const createUser = (input: CreateUserInput): UserRecord => {
     display_name: input.displayName,
     pass_hash: input.passHash ?? null,
     avatar_url: input.avatarUrl ?? null,
+    avatar_override: input.avatarOverride ? 1 : 0,
     provider: input.provider,
     provider_sub: input.providerSub ?? null,
     twofa_secret: input.twofaSecret ?? null,
@@ -269,6 +277,11 @@ export const updateUser = (id: string, updates: UpdateUserInput): UserRecord | u
   if (updates.avatarUrl !== undefined) {
     fields.push('avatar_url = @avatar_url');
     params.avatar_url = updates.avatarUrl ?? null;
+  }
+
+  if (updates.avatarOverride !== undefined) {
+    fields.push('avatar_override = @avatar_override');
+    params.avatar_override = updates.avatarOverride ? 1 : 0;
   }
 
   if (updates.provider !== undefined) {

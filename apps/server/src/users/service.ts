@@ -117,6 +117,7 @@ export const updateProfile = (
 	const payload: UpdateUserProfileInput = {
 		displayName: parsed.data.displayName,
 		avatarUrl: parsed.data.avatarUrl,
+		avatarOverride: parsed.data.avatarUrl !== undefined ? true : undefined,
 		email: parsed.data.email ? parsed.data.email.trim().toLowerCase() : undefined,
 	};
 

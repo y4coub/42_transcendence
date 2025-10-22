@@ -7,6 +7,7 @@ export interface UserProfileRecord {
 	email: string;
 	displayName: string;
 	avatarUrl: string | null;
+	avatarOverride: boolean;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -14,6 +15,7 @@ export interface UserProfileRecord {
 export interface UpdateUserProfileInput {
 	displayName?: string;
 	avatarUrl?: string | null;
+	avatarOverride?: boolean;
 	email?: string;
 }
 
@@ -41,6 +43,7 @@ const profileSelect = `
 		email,
 		display_name AS displayName,
 		avatar_url AS avatarUrl,
+		avatar_override AS avatarOverride,
 		STRFTIME('%Y-%m-%dT%H:%M:%fZ', created_at) AS createdAt,
 		STRFTIME('%Y-%m-%dT%H:%M:%fZ', updated_at) AS updatedAt
 	FROM users
@@ -99,6 +102,7 @@ export const getUserProfile = (userId: string): UserProfileRecord | null => {
 		email: row.email as string,
 		displayName: row.displayName as string,
 		avatarUrl: (row.avatarUrl as string | null) ?? null,
+		avatarOverride: Boolean(row.avatarOverride),
 		createdAt: row.createdAt as string,
 		updatedAt: row.updatedAt as string,
 	};
@@ -122,6 +126,11 @@ export const updateUserProfile = (userId: string, updates: UpdateUserProfileInpu
 	if (updates.avatarUrl !== undefined) {
 		fields.push('avatar_url = @avatar_url');
 		params.avatar_url = updates.avatarUrl ?? null;
+	}
+
+	if (updates.avatarOverride !== undefined) {
+		fields.push('avatar_override = @avatar_override');
+		params.avatar_override = updates.avatarOverride ? 1 : 0;
 	}
 
 	if (updates.email !== undefined) {
