@@ -8,4 +8,5 @@ yarn-error.log*
 .pnpm-debug.log*
 .env
 .DS_Store
+.package-lock.json
 .speckit/cache/
