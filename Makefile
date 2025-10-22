@@ -38,9 +38,15 @@ down:
 logs:
 	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) logs -f
 
+# Continuous backend log tail for server monitoring.
+.PHONY: monitor
+monitor:
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) logs -f backend
+
 .PHONY: restart
 restart: down up
 
+# Remove containers, networks, named volumes, and local images created by this stack.
 .PHONY: clean
 clean:
-	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) down -v
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) down --volumes --remove-orphans --rmi local
