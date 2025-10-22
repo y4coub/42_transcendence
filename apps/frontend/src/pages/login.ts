@@ -16,6 +16,19 @@ const API_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:3000' 
   : `https://${window.location.hostname}`;
 
+class AuthRequestError extends Error {
+  public readonly fieldErrors: Partial<Record<'email' | 'displayName' | 'password', string>>;
+
+  constructor(
+    message: string,
+    fieldErrors: Partial<Record<'email' | 'displayName' | 'password', string>> = {}
+  ) {
+    super(message);
+    this.name = 'AuthRequestError';
+    this.fieldErrors = fieldErrors;
+  }
+}
+
 export function createLoginPage(): HTMLElement {
   const container = createDiv("relative min-h-screen w-full overflow-hidden bg-[#030714]");
 
@@ -269,7 +282,7 @@ export function createLoginPage(): HTMLElement {
           .then(async (res) => {
             if (!res.ok) {
               const errorPayload = await res.json().catch(() => null);
-              const serverMessage =
+              const resolvedMessage =
                 (errorPayload && (errorPayload.message as string | undefined)) ||
                 (errorPayload && typeof errorPayload.error === "string" ? errorPayload.error : undefined) ||
                 (errorPayload && typeof errorPayload.error === "object"
@@ -277,11 +290,51 @@ export function createLoginPage(): HTMLElement {
                   : undefined) ||
                 res.statusText ||
                 `HTTP ${res.status}`;
+
+              let fieldErrors: Partial<Record<'email' | 'displayName' | 'password', string>> = {};
+
+              if (mode === "register") {
+                const normalized = resolvedMessage.toLowerCase();
+                if (normalized.includes("display name")) {
+                  fieldErrors = { ...fieldErrors, displayName: resolvedMessage };
+                }
+                if (normalized.includes("email")) {
+                  fieldErrors = { ...fieldErrors, email: resolvedMessage };
+                }
+
+                if (
+                  !fieldErrors.email &&
+                  !fieldErrors.displayName &&
+                  errorPayload &&
+                  typeof errorPayload === "object" &&
+                  errorPayload !== null
+                ) {
+                  const payloadErrors = (errorPayload as { errors?: Array<{ message?: string; path?: string[] }> }).errors;
+                  if (Array.isArray(payloadErrors)) {
+                    payloadErrors.forEach((entry) => {
+                      const path = Array.isArray(entry.path) ? entry.path.join(".").toLowerCase() : "";
+                      const message = entry.message ?? resolvedMessage;
+                      if (path.includes("displayname")) {
+                        fieldErrors = { ...fieldErrors, displayName: message };
+                      } else if (path.includes("email")) {
+                        fieldErrors = { ...fieldErrors, email: message };
+                      }
+                    });
+                  }
+                }
+              }
+
+              if (mode === "login") {
+                fieldErrors = { password: resolvedMessage };
+              }
+
               console.warn("Auth request failed", {
                 status: res.status,
-                message: serverMessage,
+                message: resolvedMessage,
+                fieldErrors,
               });
-              throw new Error(serverMessage);
+
+              throw new AuthRequestError(resolvedMessage, fieldErrors);
             }
             return res.json();
           })
@@ -324,18 +377,34 @@ export function createLoginPage(): HTMLElement {
             primaryBtn.textContent = mode === "login" ? "SIGN IN" : "CREATE ACCOUNT";
             
             // Display error message
-            const errorMsg = err.message || "An error occurred";
+            const isAuthError = err instanceof AuthRequestError;
+            const errorMsg = err instanceof Error ? err.message : "An error occurred";
             if (mode === "login") {
-              passwordError.textContent = errorMsg;
+              const loginFieldErrors = isAuthError ? err.fieldErrors : {};
+              const passwordMsg = loginFieldErrors?.password ?? errorMsg;
+              passwordError.textContent = passwordMsg;
               passwordInput.style.borderColor = "#f87171";
             } else {
-              emailError.textContent = errorMsg;
-              emailInput.style.borderColor = "#f87171";
-              if (displayNameError) {
-                displayNameError.textContent = errorMsg;
+              const fieldErrors = isAuthError ? err.fieldErrors : {};
+              const emailMsg = fieldErrors?.email ?? "";
+              const displayNameMsg = fieldErrors?.displayName ?? "";
+
+              if (emailMsg) {
+                emailError.textContent = emailMsg;
+                emailInput.style.borderColor = "#f87171";
+              } else if (!displayNameMsg) {
+                emailError.textContent = errorMsg;
+                emailInput.style.borderColor = "#f87171";
               }
-              if (displayNameInput) {
-                displayNameInput.style.borderColor = "#f87171";
+
+              if (displayNameError && displayNameInput) {
+                if (displayNameMsg) {
+                  displayNameError.textContent = displayNameMsg;
+                  displayNameInput.style.borderColor = "#f87171";
+                } else {
+                  displayNameError.textContent = "";
+                  displayNameInput.style.borderColor = "";
+                }
               }
             }
           });

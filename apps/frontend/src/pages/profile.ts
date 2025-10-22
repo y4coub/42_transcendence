@@ -946,6 +946,7 @@ export function createProfilePage(): HTMLElement {
     usernameInput.value = profile?.displayName ?? '';
     usernameInput.placeholder = profile ? '' : 'Loading profile...';
     usernameInput.disabled = !profile;
+    usernameInput.setAttribute('aria-invalid', 'false');
 
     const emailLabel = createLabel("Email", "edit-email", "text-[#E0E0E0]/80");
     const emailInput = createInput(
@@ -957,14 +958,100 @@ export function createProfilePage(): HTMLElement {
     emailInput.placeholder = profile?.email ?? userInfo?.email ?? "Enter new email";
     emailInput.required = true;
     emailInput.autocomplete = "email";
+    emailInput.setAttribute('aria-invalid', 'false');
+
+    const createFieldError = (id: string): HTMLParagraphElement => {
+      const errorEl = createElement("p", "text-xs text-[#FF008C] hidden") as HTMLParagraphElement;
+      errorEl.id = id;
+      errorEl.setAttribute('role', 'alert');
+      return errorEl;
+    };
+
+    const usernameError = createFieldError("edit-username-error");
+    const emailError = createFieldError("edit-email-error");
+
+    usernameInput.setAttribute('aria-describedby', usernameError.id);
+    emailInput.setAttribute('aria-describedby', emailError.id);
+
+    const setFieldError = (input: HTMLInputElement, errorEl: HTMLElement, message: string): void => {
+      errorEl.textContent = message;
+      errorEl.classList.remove('hidden');
+      input.setAttribute('aria-invalid', 'true');
+    };
+
+    const clearFieldError = (input: HTMLInputElement, errorEl: HTMLElement): void => {
+      errorEl.textContent = '';
+      errorEl.classList.add('hidden');
+      input.setAttribute('aria-invalid', 'false');
+    };
+
+    const clearAllFieldErrors = (): void => {
+      clearFieldError(usernameInput, usernameError);
+      clearFieldError(emailInput, emailError);
+    };
+
+    usernameInput.addEventListener('input', () => clearFieldError(usernameInput, usernameError));
+    emailInput.addEventListener('input', () => clearFieldError(emailInput, emailError));
 
     const saveBtn = createButton(
       "Save Changes",
       "w-full bg-[#00C8FF] text-[#121217] hover:bg-[#00C8FF]/90 px-4 py-2 rounded transition-colors",
       async () => {
-        if (isSaving || !usernameInput.value.trim()) return;
+        if (isSaving) return;
         if (!profile) {
           showErrorMessage('Profile data is still loading.');
+          return;
+        }
+
+        clearAllFieldErrors();
+
+        const displayName = usernameInput.value.trim();
+        const email = emailInput.value.trim();
+
+        type FieldKey = 'username' | 'email';
+        let firstInvalid: FieldKey | null = null;
+        const flagFieldError = (
+          input: HTMLInputElement,
+          errorEl: HTMLElement,
+          message: string,
+          key: FieldKey
+        ): void => {
+          setFieldError(input, errorEl, message);
+          if (!firstInvalid) {
+            firstInvalid = key;
+          }
+        };
+
+        if (displayName.length === 0) {
+          flagFieldError(usernameInput, usernameError, 'Display name is required', 'username');
+        } else if (displayName.length < 3) {
+          flagFieldError(
+            usernameInput,
+            usernameError,
+            'Display name must be at least 3 characters',
+            'username'
+          );
+        } else if (displayName.length > 32) {
+          flagFieldError(
+            usernameInput,
+            usernameError,
+            'Display name must be at most 32 characters',
+            'username'
+          );
+        }
+
+        if (email.length === 0) {
+          flagFieldError(emailInput, emailError, 'Email is required', 'email');
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          flagFieldError(emailInput, emailError, 'Enter a valid email address', 'email');
+        }
+
+        if (firstInvalid === 'username') {
+          usernameInput.focus();
+          return;
+        }
+        if (firstInvalid === 'email') {
+          emailInput.focus();
           return;
         }
 
@@ -976,25 +1063,6 @@ export function createProfilePage(): HTMLElement {
           const userId = getUserId();
           if (!userId) {
             throw new Error('User session expired. Please log in again.');
-          }
-
-          const displayName = usernameInput.value.trim();
-          const email = emailInput.value.trim();
-
-          if (displayName.length < 3) {
-            throw new Error('Display name must be at least 3 characters');
-          }
-
-          if (displayName.length > 32) {
-            throw new Error('Display name must be at most 32 characters');
-          }
-
-          if (email.length === 0) {
-            throw new Error('Email is required');
-          }
-
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            throw new Error('Enter a valid email address');
           }
 
           const payload: UserProfileUpdate = { displayName, email };
@@ -1010,7 +1078,23 @@ export function createProfilePage(): HTMLElement {
           toggleModal(false);
         } catch (error) {
           console.error('Failed to update profile:', error);
-          showErrorMessage(error instanceof Error ? error.message : 'Failed to update profile');
+          const message = error instanceof Error ? error.message : 'Failed to update profile';
+          const normalized = message.toLowerCase();
+          let handled = false;
+
+          if (normalized.includes('display name')) {
+            setFieldError(usernameInput, usernameError, message);
+            usernameInput.focus();
+            handled = true;
+          } else if (normalized.includes('email')) {
+            setFieldError(emailInput, emailError, message);
+            emailInput.focus();
+            handled = true;
+          }
+
+          if (!handled) {
+            showErrorMessage(message);
+          }
         } finally {
           isSaving = false;
           saveBtn.removeAttribute("disabled");
@@ -1024,8 +1108,10 @@ export function createProfilePage(): HTMLElement {
       avatarRow,
       usernameLabel,
       usernameInput,
+      usernameError,
       emailLabel,
       emailInput,
+      emailError,
       saveBtn,
     ]);
   }

@@ -126,9 +126,33 @@ export function updatePlayerInfo(
   if (avatarContainer) {
     avatarContainer.innerHTML = "";
     avatarContainer.setAttribute('data-player-avatar', String(playerNum));
+    avatarContainer.classList.add('relative', 'flex-none', 'h-14', 'w-14', 'overflow-hidden');
+    avatarContainer.style.width = '3.5rem';
+    avatarContainer.style.height = '3.5rem';
+    avatarContainer.style.minWidth = '3.5rem';
+    avatarContainer.style.minHeight = '3.5rem';
+    avatarContainer.style.flex = '0 0 3.5rem';
     const borderColor = playerNum === 1 ? "border-[#00C8FF]" : "border-[#FF008C]";
-    const avatarEl = createAvatar(displayName, avatarUrl, "h-12 w-12", borderColor, userId);
+    const avatarEl = createAvatar(displayName, avatarUrl, "h-full w-full", borderColor, userId);
     avatarEl.setAttribute('data-player-avatar-inner', String(playerNum));
+    avatarEl.classList.add('h-full', 'w-full', 'overflow-hidden', 'rounded-full');
+    avatarEl.style.width = '100%';
+    avatarEl.style.height = '100%';
+    avatarEl.style.maxWidth = '100%';
+    avatarEl.style.maxHeight = '100%';
+    if (avatarEl instanceof HTMLButtonElement) {
+      avatarEl.classList.remove('inline-flex');
+      avatarEl.classList.add('flex', 'items-center', 'justify-center', 'p-0');
+      avatarEl.style.padding = '0';
+      avatarEl.style.flex = '0 0 auto';
+    }
+    const avatarImage = avatarEl.querySelector('img');
+    if (avatarImage instanceof HTMLImageElement) {
+      avatarImage.style.width = '100%';
+      avatarImage.style.height = '100%';
+      avatarImage.style.maxWidth = '100%';
+      avatarImage.style.maxHeight = '100%';
+    }
     const initials = avatarEl.querySelector('span');
     if (initials) {
       initials.setAttribute('data-player-avatar-initials', String(playerNum));
@@ -236,14 +260,31 @@ export function createGamePage(): HTMLElement {
   const player1 = createDiv("flex min-w-0 items-center gap-4");
   player1.id = "player1-info";
 
-  const player1Avatar = createDiv("relative flex-shrink-0");
+  const player1Avatar = createDiv("relative flex-none h-14 w-14 overflow-hidden");
+  player1Avatar.style.width = '3.5rem';
+  player1Avatar.style.height = '3.5rem';
+  player1Avatar.style.minWidth = '3.5rem';
+  player1Avatar.style.minHeight = '3.5rem';
+  player1Avatar.style.flex = '0 0 3.5rem';
   player1Avatar.id = "player1-avatar";
   player1Avatar.setAttribute("data-player-avatar", "1");
-  const player1AvatarInner = createAvatar("Loading...", null, "h-14 w-14", "border-[#00C8FF]");
+  const player1AvatarInner = createAvatar("Loading...", null, "h-full w-full", "border-[#00C8FF]");
   player1AvatarInner.setAttribute("data-player-avatar-inner", "1");
+  player1AvatarInner.classList.add("h-full", "w-full", "overflow-hidden", "rounded-full");
+  player1AvatarInner.style.width = '100%';
+  player1AvatarInner.style.height = '100%';
+  player1AvatarInner.style.maxWidth = '100%';
+  player1AvatarInner.style.maxHeight = '100%';
   const player1Initials = player1AvatarInner.querySelector("span");
   if (player1Initials) {
     player1Initials.setAttribute("data-player-avatar-initials", "1");
+  }
+  const player1Img = player1AvatarInner.querySelector("img");
+  if (player1Img instanceof HTMLImageElement) {
+    player1Img.style.width = '100%';
+    player1Img.style.height = '100%';
+    player1Img.style.maxWidth = '100%';
+    player1Img.style.maxHeight = '100%';
   }
   player1Avatar.appendChild(player1AvatarInner);
   player1.appendChild(player1Avatar);
@@ -292,14 +333,31 @@ export function createGamePage(): HTMLElement {
   player2Score.id = "player2-score";
   appendChildren(player2Info, [player2Label, player2Name, player2Score]);
 
-  const player2Avatar = createDiv("relative flex-shrink-0");
+  const player2Avatar = createDiv("relative flex-none h-14 w-14 overflow-hidden");
+  player2Avatar.style.width = '3.5rem';
+  player2Avatar.style.height = '3.5rem';
+  player2Avatar.style.minWidth = '3.5rem';
+  player2Avatar.style.minHeight = '3.5rem';
+  player2Avatar.style.flex = '0 0 3.5rem';
   player2Avatar.id = "player2-avatar";
   player2Avatar.setAttribute("data-player-avatar", "2");
-  const player2AvatarInner = createAvatar("...", null, "h-14 w-14", "border-[#FF008C]");
+  const player2AvatarInner = createAvatar("...", null, "h-full w-full", "border-[#FF008C]");
   player2AvatarInner.setAttribute("data-player-avatar-inner", "2");
+  player2AvatarInner.classList.add("h-full", "w-full", "overflow-hidden", "rounded-full");
+  player2AvatarInner.style.width = '100%';
+  player2AvatarInner.style.height = '100%';
+  player2AvatarInner.style.maxWidth = '100%';
+  player2AvatarInner.style.maxHeight = '100%';
   const player2Initials = player2AvatarInner.querySelector("span");
   if (player2Initials) {
     player2Initials.setAttribute("data-player-avatar-initials", "2");
+  }
+  const player2Img = player2AvatarInner.querySelector("img");
+  if (player2Img instanceof HTMLImageElement) {
+    player2Img.style.width = '100%';
+    player2Img.style.height = '100%';
+    player2Img.style.maxWidth = '100%';
+    player2Img.style.maxHeight = '100%';
   }
   player2Avatar.appendChild(player2AvatarInner);
   player2.appendChild(player2Info);

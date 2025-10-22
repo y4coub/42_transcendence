@@ -38,6 +38,8 @@ export class InputHandler {
 		// Add keyboard event listeners
 		window.addEventListener('keydown', this.handleKeyDown);
 		window.addEventListener('keyup', this.handleKeyUp);
+		window.addEventListener('blur', this.handleWindowBlur);
+		document.addEventListener('visibilitychange', this.handleVisibilityChange);
 
 		// Start fixed-rate input sending (60 Hz = ~16.67ms)
 		this.inputInterval = setInterval(() => {
@@ -60,6 +62,8 @@ export class InputHandler {
 		// Remove keyboard event listeners
 		window.removeEventListener('keydown', this.handleKeyDown);
 		window.removeEventListener('keyup', this.handleKeyUp);
+		window.removeEventListener('blur', this.handleWindowBlur);
+		document.removeEventListener('visibilitychange', this.handleVisibilityChange);
 
 		// Clear input interval
 		if (this.inputInterval) {
@@ -159,6 +163,24 @@ export class InputHandler {
 		event.preventDefault();
 		this.pressed.delete(normalized);
 		this.updateDirectionFromPressed();
+	};
+
+	private handleWindowBlur = (): void => {
+		if (!this.isActive) {
+			return;
+		}
+
+		this.pressed.clear();
+		this.currentDirection = 'stop';
+	};
+
+	private handleVisibilityChange = (): void => {
+		if (!this.isActive || document.visibilityState === 'visible') {
+			return;
+		}
+
+		this.pressed.clear();
+		this.currentDirection = 'stop';
 	};
 
 	/**

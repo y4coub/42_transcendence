@@ -91,6 +91,7 @@ class PlayPage {
 	private hasSentReady = false;
 	private latestReadyState: ReadyStateMessage | null = null;
 	private countdownNumberEl: HTMLElement | null = null;
+	private countdownHideTimer: ReturnType<typeof setTimeout> | null = null;
 
 	async init(): Promise<void> {
 		try {
@@ -231,7 +232,6 @@ class PlayPage {
 		}
 
 		this.screen = 'loading';
-		this.countdownNumberEl = null;
 		this.clearCountdownTimers();
 		this.flowOverlay.classList.remove('hidden');
 		this.flowOverlay.innerHTML = '';
@@ -322,51 +322,83 @@ class PlayPage {
 		this.flowOverlay.appendChild(backdrop);
 	}
 
-	private renderServerCountdown(seconds: number): void {
+	private updateFlowCountdown(
+		seconds: number,
+		options?: { screen?: GameScreen | null; backdropClass?: string; autoHide?: boolean },
+	): void {
 		if (!this.flowOverlay) {
 			return;
 		}
 
-		this.screen = 'loading';
-		this.flowOverlay.classList.remove('hidden');
+		if (typeof options?.screen === 'string') {
+			this.screen = options.screen;
+		}
+
+		if (this.countdownHideTimer !== null) {
+			clearTimeout(this.countdownHideTimer);
+			this.countdownHideTimer = null;
+		}
+
+		const backdropClass =
+			options?.backdropClass ?? 'flex h-full w-full items-center justify-center bg-[#070910]/90 px-6';
 
 		if (!this.countdownNumberEl) {
 			this.flowOverlay.innerHTML = '';
 			const backdrop = document.createElement('div');
-			backdrop.className = 'flex h-full w-full items-center justify-center bg-[#070910]/90 px-6';
+			backdrop.className = backdropClass;
 			const number = document.createElement('div');
 			number.className =
 				'text-6xl sm:text-7xl md:text-8xl font-bold uppercase tracking-[0.35em] text-[#00C8FF] drop-shadow-[0_0_30px_rgba(0,200,255,0.6)] transition-transform duration-300';
 			backdrop.appendChild(number);
 			this.flowOverlay.appendChild(backdrop);
 			this.countdownNumberEl = number;
+		} else {
+			const parent = this.countdownNumberEl.parentElement;
+			if (parent) {
+				parent.className = backdropClass;
+			}
 		}
 
-		if (!this.countdownNumberEl) {
+		this.flowOverlay.classList.remove('hidden');
+
+		const numberEl = this.countdownNumberEl;
+		if (!numberEl) {
 			return;
 		}
+
+		this.renderer?.clearCountdownOverlay();
 
 		if (seconds <= 0) {
-			this.countdownNumberEl.textContent = 'GO';
-			this.countdownNumberEl.style.transform = 'scale(1.15)';
+			numberEl.textContent = 'GO';
+			numberEl.style.transform = 'scale(1.15)';
 
-			window.setTimeout(() => {
-				this.countdownNumberEl = null;
-				if (this.flowOverlay) {
-					this.flowOverlay.classList.add('hidden');
-					this.flowOverlay.innerHTML = '';
-				}
-			}, 600);
+			if (options?.autoHide ?? true) {
+				this.countdownHideTimer = window.setTimeout(() => {
+					if (this.countdownNumberEl === numberEl) {
+						this.countdownNumberEl = null;
+						if (this.flowOverlay) {
+							this.flowOverlay.classList.add('hidden');
+							this.flowOverlay.innerHTML = '';
+						}
+					}
+					this.countdownHideTimer = null;
+				}, 600);
+			}
+
 			return;
 		}
 
-		this.countdownNumberEl.textContent = String(seconds);
-		this.countdownNumberEl.style.transform = 'scale(1.1)';
+		numberEl.textContent = String(seconds);
+		numberEl.style.transform = 'scale(1.1)';
 		window.setTimeout(() => {
-			if (this.countdownNumberEl) {
-				this.countdownNumberEl.style.transform = 'scale(1)';
+			if (this.countdownNumberEl === numberEl) {
+				numberEl.style.transform = 'scale(1)';
 			}
 		}, 200);
+	}
+
+	private renderServerCountdown(seconds: number): void {
+		this.updateFlowCountdown(seconds, { screen: 'loading' });
 	}
 
 	private clearCountdownTimers(): void {
@@ -375,12 +407,18 @@ class PlayPage {
 			this.countdownTimers = [];
 		}
 
-		if (this.countdownActive && this.flowOverlay) {
+		if (this.countdownHideTimer !== null) {
+			clearTimeout(this.countdownHideTimer);
+			this.countdownHideTimer = null;
+		}
+
+		if (this.flowOverlay) {
 			this.flowOverlay.classList.add('hidden');
 			this.flowOverlay.innerHTML = '';
 		}
 
 		this.countdownActive = false;
+		this.countdownNumberEl = null;
 		this.renderer?.clearCountdownOverlay();
 	}
 
@@ -393,17 +431,6 @@ class PlayPage {
 		this.clearCountdownTimers();
 		this.countdownActive = true;
 
-		const overlay = this.flowOverlay;
-		overlay.classList.remove('hidden');
-		overlay.innerHTML = '';
-
-		const backdrop = document.createElement('div');
-		backdrop.className = 'flex h-full w-full items-center justify-center bg-[#070910]/85 px-6';
-		const numberEl = document.createElement('div');
-		numberEl.className = 'text-6xl sm:text-7xl md:text-8xl font-bold uppercase tracking-[0.35em] text-[#00C8FF] drop-shadow-[0_0_30px_rgba(0,200,255,0.6)] transition-transform duration-300';
-		backdrop.appendChild(numberEl);
-		overlay.appendChild(backdrop);
-
 		let remaining = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 3;
 
 		const tick = () => {
@@ -411,33 +438,33 @@ class PlayPage {
 				return;
 			}
 
-			if (remaining <= 0) {
-				numberEl.textContent = 'GO';
-				this.renderer?.showCountdownOverlay(0);
-				const hideTimer = setTimeout(() => {
+			const value = Math.max(0, remaining);
+			this.updateFlowCountdown(value, { screen: 'loading', autoHide: false });
+
+			if (value <= 0) {
+				const hideTimer = window.setTimeout(() => {
 					if (!this.countdownActive) {
 						return;
 					}
 					this.countdownActive = false;
 					this.countdownTimers = [];
-					overlay.classList.add('hidden');
-					overlay.innerHTML = '';
+					if (this.countdownHideTimer !== null) {
+						clearTimeout(this.countdownHideTimer);
+						this.countdownHideTimer = null;
+					}
+					this.countdownNumberEl = null;
+					if (this.flowOverlay) {
+						this.flowOverlay.classList.add('hidden');
+						this.flowOverlay.innerHTML = '';
+					}
 					onComplete();
 				}, 600);
 				this.countdownTimers.push(hideTimer);
 				return;
 			}
 
-			numberEl.textContent = String(remaining);
-			numberEl.style.transform = 'scale(1.1)';
-			this.renderer?.showCountdownOverlay(remaining);
-			const settleTimer = setTimeout(() => {
-				numberEl.style.transform = 'scale(1)';
-			}, 150);
-			this.countdownTimers.push(settleTimer);
-
 			remaining -= 1;
-			const nextTimer = setTimeout(tick, 1000);
+			const nextTimer = window.setTimeout(tick, 1000);
 			this.countdownTimers.push(nextTimer);
 		};
 
@@ -446,8 +473,15 @@ class PlayPage {
 
 	private showPlaying(): void {
 		this.screen = 'playing';
+		if (this.countdownHideTimer !== null) {
+			clearTimeout(this.countdownHideTimer);
+			this.countdownHideTimer = null;
+		}
 		this.countdownNumberEl = null;
-		this.flowOverlay?.classList.add('hidden');
+		if (this.flowOverlay) {
+			this.flowOverlay.classList.add('hidden');
+			this.flowOverlay.innerHTML = '';
+		}
 	}
 
 	private showEnd(config: EndScreenConfig): void {
@@ -809,14 +843,17 @@ class PlayPage {
 		const botRandomAimOffset = 0.12;
 		const botCenterY = 0.5;
 		const botMistakeChance = 0.22;
-		const ballSpeed = 0.6;
+		const baseBallSpeed = 0.6;
+		const ballSpeedIncrease = 1.05;
 
 		let p1Y = 0.5;
 		let p2Y = 0.5;
 		let ballX = 0.5;
 		let ballY = 0.5;
-		let ballVX = ballSpeed * (Math.random() > 0.5 ? 1 : -1);
-		let ballVY = ballSpeed * (Math.random() * 0.6 - 0.3);
+		let currentBallSpeed = baseBallSpeed;
+		let ballVX = currentBallSpeed * (Math.random() > 0.5 ? 1 : -1);
+		let ballVY = currentBallSpeed * (Math.random() * 0.6 - 0.3);
+		currentBallSpeed = Math.sqrt(ballVX * ballVX + ballVY * ballVY);
 		let scoreP1 = 0;
 		let scoreP2 = 0;
 		let botTargetY = botCenterY;
@@ -828,17 +865,21 @@ class PlayPage {
 			Math.max(paddleHeight / 2, Math.min(1 - paddleHeight / 2, y));
 
 		const resetBall = (direction: 1 | -1) => {
+			currentBallSpeed = baseBallSpeed;
 			ballX = 0.5;
 			ballY = 0.5;
 			const angle = (Math.random() * Math.PI) / 3 - Math.PI / 6;
-			ballVX = ballSpeed * Math.cos(angle) * direction;
-			ballVY = ballSpeed * Math.sin(angle);
+			ballVX = currentBallSpeed * Math.cos(angle) * direction;
+			ballVY = currentBallSpeed * Math.sin(angle);
 		};
 
 		const scheduleServeCountdown = (direction: 1 | -1) => {
 			this.clearCountdownTimers();
 			paused = true;
 			updateMatchMeta('status', 'Countdown');
+			resetKeyMap();
+			p1Y = 0.5;
+			p2Y = 0.5;
 			ballX = 0.5;
 			ballY = 0.5;
 			ballVX = 0;
@@ -856,23 +897,25 @@ class PlayPage {
 					if (finished) {
 						return;
 					}
-					this.renderer?.showCountdownOverlay(value);
-					if (value === 0) {
+					const isFinal = value === 0;
+					this.updateFlowCountdown(value);
+					if (!isFinal) {
+						return;
+					}
+					const resumeTimer = window.setTimeout(() => {
+						if (finished) {
+							return;
+						}
 						resetBall(direction);
 						lastTimestamp = null;
 						paused = this.localPaused;
 						updateMatchMeta('status', this.mode === 'bot' ? 'Practice' : 'Local Versus');
-					}
+					}, 600);
+					this.countdownTimers.push(resumeTimer);
 				}, index * 1000);
 				this.countdownTimers.push(handle);
 			});
 
-			const resumeHandle = window.setTimeout(() => {
-				if (!finished) {
-					paused = this.localPaused;
-				}
-			}, sequence.length * 1000);
-			this.countdownTimers.push(resumeHandle);
 		};
 
 		const normalizeBounce = (y: number): number => {
@@ -945,6 +988,15 @@ class PlayPage {
 			p2Y = clampPaddle(p2Y + direction * speed * dt);
 		};
 
+		const resetKeyMap = () => {
+			keys['w'] = false;
+			keys['W'] = false;
+			keys['s'] = false;
+			keys['S'] = false;
+			keys['ArrowUp'] = false;
+			keys['ArrowDown'] = false;
+		};
+
 		const handleKeyDown = (event: KeyboardEvent) => {
 			if (finished) return;
 			if (['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
@@ -968,70 +1020,20 @@ class PlayPage {
 			}
 		};
 
+		const handleWindowBlur = () => {
+			resetKeyMap();
+		};
+
+		const handleVisibilityChange = () => {
+			if (document.visibilityState !== 'visible') {
+				resetKeyMap();
+			}
+		};
+
 		window.addEventListener('keydown', handleKeyDown);
 		window.addEventListener('keyup', handleKeyUp);
-
-		type PointerTarget = 'p1' | 'p2';
-		let pointerActive = false;
-		let pointerTarget: PointerTarget = 'p1';
-		let pointerId: number | null = null;
-
-		const resolvePointerTarget = (clientX: number): PointerTarget => {
-			if (mode === 'local') {
-				const rect = canvas.getBoundingClientRect();
-				return clientX - rect.left > rect.width / 2 ? 'p2' : 'p1';
-			}
-			return 'p1';
-		};
-
-		const applyPointerPosition = (clientY: number) => {
-			const rect = canvas.getBoundingClientRect();
-			const normalized = clampPaddle((clientY - rect.top) / rect.height);
-			if (pointerTarget === 'p1') {
-				p1Y = normalized;
-			} else {
-				p2Y = normalized;
-			}
-		};
-
-		const pointerDown = (event: PointerEvent) => {
-			if (finished) return;
-			pointerActive = true;
-			pointerId = event.pointerId;
-			pointerTarget = resolvePointerTarget(event.clientX);
-			canvas.setPointerCapture(pointerId);
-			applyPointerPosition(event.clientY);
-		};
-
-		const pointerMove = (event: PointerEvent) => {
-			if (!pointerActive) return;
-			if (pointerId !== null && event.pointerId !== pointerId) {
-				return;
-			}
-			applyPointerPosition(event.clientY);
-		};
-
-		const endPointer = (event: PointerEvent) => {
-			if (!pointerActive) {
-				return;
-			}
-			if (pointerId !== null && event.pointerId !== pointerId) {
-				return;
-			}
-			try {
-				canvas.releasePointerCapture(event.pointerId);
-			} catch {
-				// ignore release errors
-			}
-			pointerActive = false;
-			pointerId = null;
-		};
-
-		canvas.addEventListener('pointerdown', pointerDown);
-		canvas.addEventListener('pointermove', pointerMove);
-		canvas.addEventListener('pointerup', endPointer);
-		canvas.addEventListener('pointercancel', endPointer);
-		canvas.addEventListener('pointerleave', endPointer);
+		window.addEventListener('blur', handleWindowBlur);
+		document.addEventListener('visibilitychange', handleVisibilityChange);
 
 		const update = (dt: number) => {
 			if (this.localPaused) {
@@ -1070,6 +1072,18 @@ class PlayPage {
 			}
 
 			// Paddle collisions
+			const applyPaddleBounce = (isPlayerOne: boolean, paddleX: number, paddleY: number) => {
+				const offset = (ballY - paddleY) / (paddleHeight / 2);
+				const clampedOffset = Math.max(-1, Math.min(1, offset));
+				const newSpeed = currentBallSpeed * ballSpeedIncrease;
+				const vy = newSpeed * clampedOffset * 0.75;
+				const horizontalComponent = Math.sqrt(Math.max(1e-6, newSpeed * newSpeed - vy * vy));
+				ballX = isPlayerOne ? paddleX + ballSize / 2 : paddleX - ballSize / 2;
+				ballVX = isPlayerOne ? horizontalComponent : -horizontalComponent;
+				ballVY = vy;
+				currentBallSpeed = newSpeed;
+			};
+
 			const checkPaddleCollision = (isPlayerOne: boolean): boolean => {
 				const paddleX = isPlayerOne ? paddleWidth : 1 - paddleWidth;
 				const paddleY = isPlayerOne ? p1Y : p2Y;
@@ -1078,10 +1092,7 @@ class PlayPage {
 				if (isPlayerOne) {
 					if (ballEdgeX <= paddleX) {
 						if (Math.abs(ballY - paddleY) <= paddleHeight / 2) {
-							ballX = paddleX + ballSize / 2;
-							ballVX = Math.abs(ballVX);
-							const offset = (ballY - paddleY) / (paddleHeight / 2);
-							ballVY = ballSpeed * offset * 0.75;
+							applyPaddleBounce(true, paddleX, paddleY);
 							return true;
 						}
 						return false;
@@ -1089,10 +1100,7 @@ class PlayPage {
 				} else {
 					if (ballEdgeX >= paddleX) {
 						if (Math.abs(ballY - paddleY) <= paddleHeight / 2) {
-							ballX = paddleX - ballSize / 2;
-							ballVX = -Math.abs(ballVX);
-							const offset = (ballY - paddleY) / (paddleHeight / 2);
-							ballVY = ballSpeed * offset * 0.75;
+							applyPaddleBounce(false, paddleX, paddleY);
 							return true;
 						}
 						return false;
@@ -1194,13 +1202,11 @@ class PlayPage {
 					cancelAnimationFrame(animationId);
 					animationId = null;
 				}
-			window.removeEventListener('keydown', handleKeyDown);
-			window.removeEventListener('keyup', handleKeyUp);
-			canvas.removeEventListener('pointerdown', pointerDown);
-			canvas.removeEventListener('pointermove', pointerMove);
-			canvas.removeEventListener('pointerup', endPointer);
-			canvas.removeEventListener('pointercancel', endPointer);
-			canvas.removeEventListener('pointerleave', endPointer);
+				window.removeEventListener('keydown', handleKeyDown);
+				window.removeEventListener('keyup', handleKeyUp);
+				window.removeEventListener('blur', handleWindowBlur);
+				document.removeEventListener('visibilitychange', handleVisibilityChange);
+				resetKeyMap();
 			},
 		};
 	}
@@ -1313,6 +1319,10 @@ class PlayPage {
 		this.pendingAutoReady = Boolean(context.autoReady);
 		this.hasSentReady = false;
 		this.latestReadyState = null;
+		if (this.countdownHideTimer !== null) {
+			clearTimeout(this.countdownHideTimer);
+			this.countdownHideTimer = null;
+		}
 		this.countdownNumberEl = null;
 
 		this.wsUnsubscribe.forEach((unsubscribe) => unsubscribe());
@@ -1469,7 +1479,6 @@ class PlayPage {
 	private handleCountdown(countdown: CountdownMessage): void {
 		updateMatchMeta('status', 'Countdown');
 		this.renderServerCountdown(Math.max(0, Math.round(countdown.seconds)));
-		this.renderer?.showCountdownOverlay(Math.max(0, Math.round(countdown.seconds)));
 	}
 
 	private handlePause(paused: PausedMessage): void {
@@ -1634,7 +1643,6 @@ private handleMultiplayerGameOver(gameOver: GameOverMessage): void {
 
 	private cleanupCurrentMode(): void {
 		this.clearCountdownTimers();
-		this.countdownNumberEl = null;
 
 		if (this.localRuntime) {
 			this.localRuntime.stop();
@@ -1683,6 +1691,10 @@ private handleMultiplayerGameOver(gameOver: GameOverMessage): void {
 		this.latestReadyState = null;
 		this.pendingAutoReady = false;
 		this.hasSentReady = false;
+		if (this.countdownHideTimer !== null) {
+			clearTimeout(this.countdownHideTimer);
+			this.countdownHideTimer = null;
+		}
 		this.countdownNumberEl = null;
 		this.currentOpponentId = null;
 		this.currentOpponentName = 'Opponent';
