@@ -119,9 +119,9 @@ A dockerised stack is available for HTTPS-ready local or remote hosting.
    make build   # docker compose build
    make up      # docker compose up -d
    ```
-3. Visit `https://localhost` (HTTP requests on port 80 are redirected to HTTPS). The backend remains available on `http://localhost:3000` for health checks and tooling.
+3. Visit `https://localhost:8443` (HTTP requests on port 8080 are redirected to HTTPS). The backend remains available on `http://localhost:3000` for health checks and tooling.
 
-The frontend container transparently proxies `https://<host>/api` and WebSocket traffic to the backend. Persistent SQLite data lives in the `backend_data` docker volume; remove it with `make clean` if you need a fresh database.
+The frontend container transparently proxies `https://<host>:8443/api` and WebSocket traffic to the backend. Persistent SQLite data lives in the `backend_data` docker volume; remove it with `make clean` if you need a fresh database.
 
 ---
 

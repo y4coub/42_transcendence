@@ -30,8 +30,8 @@ services:
         VITE_API_URL: ${VITE_API_URL:-/api}
     container_name: ft_transcendence_frontend
     ports:
-      - "443:443"
-      - "80:80"
+      - "8443:8443"
+      - "8080:8080"
     volumes:
       - ./certs:/etc/nginx/certs:ro
     depends_on:

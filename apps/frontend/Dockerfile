@@ -23,7 +23,7 @@ COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 # Copy built frontend assets
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-EXPOSE 80
-EXPOSE 443
+EXPOSE 8080
+EXPOSE 8443
 
 CMD ["nginx", "-g", "daemon off;"]
